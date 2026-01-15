@@ -38,6 +38,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    
+    # Third-party apps
+    'rest_framework',
+    'rest_framework_simplejwt',
+    'drf_spectacular',
+    
+    # Project apps
+    'accounts',
+    'entities',
+    'pharmaceuticals',
+    'manifests',
+    'logs',
+    'reports',
 ]
 
 MIDDLEWARE = [
@@ -147,3 +160,61 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Custom User Model
+AUTH_USER_MODEL = 'accounts.User'
+
+# Django REST Framework Configuration
+REST_FRAMEWORK = {
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',  # For browsable API
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
+    'DEFAULT_FILTER_BACKENDS': [
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+}
+
+# JWT Configuration
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# DRF Spectacular (Swagger/OpenAPI) Configuration
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'RxVerify Lite API',
+    'DESCRIPTION': 'Cryptographic Medicine Verification System - A pharmaceutical supply chain verification platform using digital signatures and blockchain-inspired trust scoring.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SCHEMA_PATH_PREFIX': '/api',
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+    'TAGS': [
+        {'name': 'Authentication', 'description': 'JWT token management'},
+        {'name': 'Users', 'description': 'User account management'},
+        {'name': 'Distributors', 'description': 'Pharmaceutical distributor management'},
+        {'name': 'Medicines', 'description': 'Medicine catalog operations'},
+        {'name': 'Manifests', 'description': 'Lot manifest and signature verification'},
+        {'name': 'Receipts', 'description': 'Receipt event tracking'},
+        {'name': 'Flags', 'description': 'Crowdsourced quality reports'},
+    ],
+}
