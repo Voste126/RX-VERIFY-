@@ -1,0 +1,2087 @@
+openapi: 3.0.3
+info:
+  title: RxVerify Lite API
+  version: 1.0.0
+  description: Cryptographic Medicine Verification System - A pharmaceutical supply
+    chain verification platform using digital signatures and blockchain-inspired trust
+    scoring.
+paths:
+  /api/auth/token/:
+    post:
+      operationId: auth_token_create
+      description: |-
+        Takes a set of user credentials and returns an access and refresh JSON web
+        token pair to prove the authentication of those credentials.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenObtainPairRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenObtainPair'
+          description: ''
+  /api/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: |-
+        Takes a refresh type JSON web token and returns an access type JSON web
+        token if the refresh token is valid.
+      tags:
+      - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/distributors/:
+    get:
+      operationId: distributors_list
+      description: Retrieve a paginated list of pharmaceutical distributors with filtering
+        options.
+      summary: List all distributors
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Distributors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedDistributorList'
+          description: ''
+    post:
+      operationId: distributors_create
+      description: Register a new pharmaceutical distributor. Requires admin role.
+      summary: Create new distributor
+      tags:
+      - Distributors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DistributorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DistributorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DistributorRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Distributor'
+          description: ''
+  /api/distributors/{id}/:
+    get:
+      operationId: distributors_retrieve
+      description: Get detailed information about a specific distributor including
+        verification status.
+      summary: Retrieve distributor details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Distributor.
+        required: true
+      tags:
+      - Distributors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Distributor'
+          description: ''
+    put:
+      operationId: distributors_update
+      description: Update all fields of an existing distributor. Requires admin role.
+      summary: Update distributor
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Distributor.
+        required: true
+      tags:
+      - Distributors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DistributorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/DistributorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/DistributorRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Distributor'
+          description: ''
+    patch:
+      operationId: distributors_partial_update
+      description: Update specific fields of a distributor. Requires admin role.
+      summary: Partially update distributor
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Distributor.
+        required: true
+      tags:
+      - Distributors
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedDistributorRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedDistributorRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedDistributorRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Distributor'
+          description: ''
+    delete:
+      operationId: distributors_destroy
+      description: Permanently delete a distributor from the system. Requires admin
+        role.
+      summary: Delete distributor
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Distributor.
+        required: true
+      tags:
+      - Distributors
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/flags/:
+    get:
+      operationId: flags_list
+      description: Retrieve a paginated list of quality reports and flags with filtering
+        options.
+      summary: List all crowd flags
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Flags
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCrowdFlagList'
+          description: ''
+    post:
+      operationId: flags_create
+      description: Submit a new quality report or flag. Automatically associates the
+        authenticated user. Patients and pharmacists can create flags.
+      summary: Create new crowd flag
+      tags:
+      - Flags
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrowdFlag'
+          description: ''
+  /api/flags/{id}/:
+    get:
+      operationId: flags_retrieve
+      description: Get detailed information about a specific quality report.
+      summary: Retrieve crowd flag details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Crowd Flag.
+        required: true
+      tags:
+      - Flags
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrowdFlag'
+          description: ''
+    put:
+      operationId: flags_update
+      description: Update all fields of an existing quality report.
+      summary: Update crowd flag
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Crowd Flag.
+        required: true
+      tags:
+      - Flags
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrowdFlag'
+          description: ''
+    patch:
+      operationId: flags_partial_update
+      description: Update specific fields of a quality report.
+      summary: Partially update crowd flag
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Crowd Flag.
+        required: true
+      tags:
+      - Flags
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCrowdFlagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCrowdFlagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCrowdFlagRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrowdFlag'
+          description: ''
+    delete:
+      operationId: flags_destroy
+      description: Permanently delete a quality report from the system.
+      summary: Delete crowd flag
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Crowd Flag.
+        required: true
+      tags:
+      - Flags
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/flags/{id}/resolve/:
+    post:
+      operationId: flags_resolve_create
+      description: Mark a quality report as resolved. Typically used by administrators.
+      summary: Mark flag as resolved
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Crowd Flag.
+        required: true
+      tags:
+      - Flags
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrowdFlag'
+          description: ''
+  /api/flags/{id}/unresolve/:
+    post:
+      operationId: flags_unresolve_create
+      description: Mark a quality report as unresolved. Used to reopen resolved issues.
+      summary: Mark flag as unresolved
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Crowd Flag.
+        required: true
+      tags:
+      - Flags
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CrowdFlagRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CrowdFlag'
+          description: ''
+  /api/manifests/:
+    get:
+      operationId: manifests_list
+      description: Retrieve a paginated list of lot manifests with filtering options.
+      summary: List all lot manifests
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Manifests
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLotManifestList'
+          description: ''
+    post:
+      operationId: manifests_create
+      description: Register a new lot/batch manifest with digital signature. Requires
+        admin role.
+      summary: Create new lot manifest
+      tags:
+      - Manifests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LotManifest'
+          description: ''
+  /api/manifests/{id}/:
+    get:
+      operationId: manifests_retrieve
+      description: Get detailed information about a specific lot manifest including
+        digital signature and trust score.
+      summary: Retrieve lot manifest details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Lot Manifest.
+        required: true
+      tags:
+      - Manifests
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LotManifest'
+          description: ''
+    put:
+      operationId: manifests_update
+      description: Update all fields of an existing lot manifest. Requires admin role.
+      summary: Update lot manifest
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Lot Manifest.
+        required: true
+      tags:
+      - Manifests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LotManifest'
+          description: ''
+    patch:
+      operationId: manifests_partial_update
+      description: Update specific fields of a lot manifest. Requires admin role.
+      summary: Partially update lot manifest
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Lot Manifest.
+        required: true
+      tags:
+      - Manifests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedLotManifestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedLotManifestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedLotManifestRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LotManifest'
+          description: ''
+    delete:
+      operationId: manifests_destroy
+      description: Permanently delete a lot manifest from the system. Requires admin
+        role.
+      summary: Delete lot manifest
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Lot Manifest.
+        required: true
+      tags:
+      - Manifests
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/manifests/{id}/verify/:
+    post:
+      operationId: manifests_verify_create
+      description: "\n        Verify the digital signature of a lot manifest.\n  \
+        \      \n        This endpoint calls the verify_signature() model method to\
+        \ validate the \n        cryptographic signature against the distributor's\
+        \ public key.\n        \n        Returns a structured JSON response with:\n\
+        \        - status: \"Verified\", \"Forged\", or \"Unknown\"\n        - is_authentic:\
+        \ Boolean indicating signature validity\n        - lot_details: Complete lot\
+        \ manifest information\n        "
+      summary: Verify lot manifest signature
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Lot Manifest.
+        required: true
+      tags:
+      - Manifests
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/LotManifestRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum:
+                    - Verified
+                    - Forged
+                    - Unknown
+                  is_authentic:
+                    type: boolean
+                  lot_details:
+                    type: object
+          description: Signature verification result
+        '404':
+          description: Lot manifest not found
+  /api/medicines/:
+    get:
+      operationId: medicines_list
+      description: "\n        Retrieve a paginated list of pharmaceutical medicines\
+        \ with detailed information.\n        \n        Supports filtering by:\n \
+        \       - Category (e.g., Antibiotic, Antimalarial)\n        - Distributor\
+        \ ID\n        - Search by name, active ingredient, or manufacturer\n     \
+        \   "
+      summary: List all medicines
+      parameters:
+      - in: query
+        name: category
+        schema:
+          type: string
+        description: Filter by medicine category (case-insensitive)
+        examples:
+          Antibiotic:
+            value: Antibiotic
+          Antimalarial:
+            value: Antimalarial
+      - in: query
+        name: distributor
+        schema:
+          type: string
+          format: uuid
+        description: Filter by distributor UUID
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - in: query
+        name: search
+        schema:
+          type: string
+        description: Search by name, active ingredient, or manufacturer
+      tags:
+      - Medicines
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMedicineList'
+          description: ''
+    post:
+      operationId: medicines_create
+      description: "\n        Add a new pharmaceutical medicine to the catalog.\n\
+        \        \n        **Required fields:**\n        - name: Product name\n  \
+        \      - active_ingredient: Generic/API name\n        - strength: Drug strength\
+        \ (e.g., 500mg)\n        - dosage_form: Form (Tablet, Capsule, Syrup, etc.)\n\
+        \        - manufacturer_name: Manufacturing company\n        - distributor:\
+        \ Distributor UUID\n        \n        **Requires admin role.**\n        "
+      summary: Create new medicine
+      tags:
+      - Medicines
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineRequest'
+            examples:
+              ParacetamolTablet:
+                value:
+                  name: Paracetamol Tablets
+                  active_ingredient: Paracetamol
+                  strength: 500mg
+                  dosage_form: Tablet
+                  manufacturer_name: Universal Corporation Ltd
+                  category: Analgesic
+                  distributor: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                summary: Paracetamol Tablet
+              AmoxicillinCapsule:
+                value:
+                  name: Amoxicillin Capsules
+                  active_ingredient: Amoxicillin
+                  strength: 250mg
+                  dosage_form: Capsule
+                  manufacturer_name: PharmaCorp Kenya
+                  category: Antibiotic
+                  distributor: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                summary: Amoxicillin Capsule
+              ArtemetherCombination:
+                value:
+                  name: Coartem Tablets
+                  active_ingredient: Artemether + Lumefantrine
+                  strength: 20mg/120mg
+                  dosage_form: Tablet
+                  manufacturer_name: Novartis East Africa
+                  category: Antimalarial
+                  distributor: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                summary: Artemether Combination
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MedicineRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MedicineRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medicine'
+          description: ''
+  /api/medicines/{id}/:
+    get:
+      operationId: medicines_retrieve
+      description: "\n        Get detailed information about a specific medicine including:\n\
+        \        - Product name and active ingredient\n        - Strength and dosage\
+        \ form\n        - Manufacturer details\n        - Distributor information\n\
+        \        "
+      summary: Retrieve medicine details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Medicine.
+        required: true
+      tags:
+      - Medicines
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medicine'
+          description: ''
+    put:
+      operationId: medicines_update
+      description: "\n        Update all fields of an existing medicine.\n       \
+        \ \n        All fields must be provided (use PATCH for partial updates).\n\
+        \        Requires admin role.\n        "
+      summary: Update medicine
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Medicine.
+        required: true
+      tags:
+      - Medicines
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicineRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/MedicineRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/MedicineRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medicine'
+          description: ''
+    patch:
+      operationId: medicines_partial_update
+      description: "\n        Update specific fields of a medicine without providing\
+        \ all fields.\n        \n        Useful for updating just the strength, manufacturer,\
+        \ or other specific attributes.\n        Requires admin role.\n        "
+      summary: Partially update medicine
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Medicine.
+        required: true
+      tags:
+      - Medicines
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicineRequest'
+            examples:
+              UpdateStrength:
+                value:
+                  strength: 1000mg
+                summary: Update Strength
+              UpdateManufacturer:
+                value:
+                  manufacturer_name: GlaxoSmithKline Kenya
+                summary: Update Manufacturer
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicineRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedMedicineRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medicine'
+          description: ''
+    delete:
+      operationId: medicines_destroy
+      description: "\n        Permanently delete a medicine from the catalog.\n  \
+        \      \n        **Warning:** This will also affect any lot manifests referencing\
+        \ this medicine.\n        Requires admin role.\n        "
+      summary: Delete medicine
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Medicine.
+        required: true
+      tags:
+      - Medicines
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/receipts/:
+    get:
+      operationId: receipts_list
+      description: Retrieve a paginated list of receipt events with filtering options.
+      summary: List all receipt events
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Receipts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReceiptEventList'
+          description: ''
+    post:
+      operationId: receipts_create
+      description: Record a new receipt event. Automatically associates the authenticated
+        pharmacist as the user. Only pharmacists can create receipt events.
+      summary: Create new receipt event
+      tags:
+      - Receipts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReceiptEventRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ReceiptEventRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ReceiptEventRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptEvent'
+          description: ''
+  /api/receipts/{id}/:
+    get:
+      operationId: receipts_retrieve
+      description: Get detailed information about a specific receipt event including
+        location data.
+      summary: Retrieve receipt event details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Receipt Event.
+        required: true
+      tags:
+      - Receipts
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReceiptEvent'
+          description: ''
+  /api/users/:
+    get:
+      operationId: users_list
+      description: Retrieve a paginated list of all registered users in the system.
+      summary: List all users
+      parameters:
+      - name: ordering
+        required: false
+        in: query
+        description: Which field to use when ordering the results.
+        schema:
+          type: string
+      - name: page
+        required: false
+        in: query
+        description: A page number within the paginated result set.
+        schema:
+          type: integer
+      - name: search
+        required: false
+        in: query
+        description: A search term.
+        schema:
+          type: string
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUserList'
+          description: ''
+    post:
+      operationId: users_create
+      description: Register a new user account. This endpoint allows public registration.
+      summary: Create new user
+      tags:
+      - Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+  /api/users/{id}/:
+    get:
+      operationId: users_retrieve
+      description: Get detailed information about a specific user by their ID.
+      summary: Retrieve user details
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this User.
+        required: true
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    put:
+      operationId: users_update
+      description: Update all fields of an existing user account.
+      summary: Update user
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this User.
+        required: true
+      tags:
+      - Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UserRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    patch:
+      operationId: users_partial_update
+      description: Update specific fields of an existing user account.
+      summary: Partially update user
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this User.
+        required: true
+      tags:
+      - Users
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedUserRequest'
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+    delete:
+      operationId: users_destroy
+      description: Permanently delete a user account from the system.
+      summary: Delete user
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this User.
+        required: true
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '204':
+          description: No response body
+  /api/users/me/:
+    get:
+      operationId: users_me_retrieve
+      description: Retrieve the profile information of the currently authenticated
+        user.
+      summary: Get current user profile
+      tags:
+      - Users
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+          description: ''
+components:
+  schemas:
+    CrowdFlag:
+      type: object
+      description: Serializer for the CrowdFlag model.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        reporter_type:
+          type: string
+          description: Type of reporter (e.g., Pharmacist, Patient, Healthcare Worker)
+          maxLength: 50
+        issue_type:
+          type: string
+          description: Type of issue reported (e.g., Counterfeit Suspected, Quality
+            Issue, Packaging Damage)
+          maxLength: 100
+        description:
+          type: string
+          description: Detailed description of the issue
+        user:
+          type: string
+          format: uuid
+          description: User who reported the issue
+        user_username:
+          type: string
+          readOnly: true
+        lot:
+          type: string
+          format: uuid
+          description: Lot manifest being flagged
+        lot_batch_number:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        is_resolved:
+          type: boolean
+      required:
+      - created_at
+      - description
+      - id
+      - issue_type
+      - lot
+      - lot_batch_number
+      - reporter_type
+      - user
+      - user_username
+    CrowdFlagRequest:
+      type: object
+      description: Serializer for the CrowdFlag model.
+      properties:
+        reporter_type:
+          type: string
+          minLength: 1
+          description: Type of reporter (e.g., Pharmacist, Patient, Healthcare Worker)
+          maxLength: 50
+        issue_type:
+          type: string
+          minLength: 1
+          description: Type of issue reported (e.g., Counterfeit Suspected, Quality
+            Issue, Packaging Damage)
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+          description: Detailed description of the issue
+        user:
+          type: string
+          format: uuid
+          description: User who reported the issue
+        lot:
+          type: string
+          format: uuid
+          description: Lot manifest being flagged
+        is_resolved:
+          type: boolean
+      required:
+      - description
+      - issue_type
+      - lot
+      - reporter_type
+      - user
+    Distributor:
+      type: object
+      description: |-
+        Serializer for the Distributor model with automatic Ed25519 key generation.
+
+        When creating a distributor without providing a public_key, the serializer will:
+        1. Generate an Ed25519 key pair
+        2. Store the public key in the database
+        3. Return the private key in the response (for secure distribution to the vendor)
+
+        The private_key is write-only and only appears in the creation response.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          maxLength: 255
+        public_key:
+          type: string
+          readOnly: true
+          description: Public key for verifying digital signatures
+        private_key:
+          type: string
+          readOnly: true
+          description: Ed25519 private key (hex) - Only returned on creation. Save
+            this securely!
+        is_verified_regulator:
+          type: boolean
+          description: Whether this distributor is verified by regulatory authorities
+      required:
+      - id
+      - name
+      - private_key
+      - public_key
+    DistributorRequest:
+      type: object
+      description: |-
+        Serializer for the Distributor model with automatic Ed25519 key generation.
+
+        When creating a distributor without providing a public_key, the serializer will:
+        1. Generate an Ed25519 key pair
+        2. Store the public key in the database
+        3. Return the private key in the response (for secure distribution to the vendor)
+
+        The private_key is write-only and only appears in the creation response.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        is_verified_regulator:
+          type: boolean
+          description: Whether this distributor is verified by regulatory authorities
+      required:
+      - name
+    LotManifest:
+      type: object
+      description: Serializer for the LotManifest model.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        batch_number:
+          type: string
+          maxLength: 100
+        expiry_date:
+          type: string
+          format: date
+        digital_signature:
+          type: string
+          description: Digital signature from the distributor
+        trust_score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Trust score based on verification (0.00 to 100.00)
+        medicine:
+          type: string
+          format: uuid
+          description: Medicine associated with this lot
+        medicine_name:
+          type: string
+          readOnly: true
+        distributor:
+          type: string
+          format: uuid
+          description: Distributor who provided this lot
+        distributor_name:
+          type: string
+          readOnly: true
+      required:
+      - batch_number
+      - digital_signature
+      - distributor
+      - distributor_name
+      - expiry_date
+      - id
+      - medicine
+      - medicine_name
+    LotManifestRequest:
+      type: object
+      description: Serializer for the LotManifest model.
+      properties:
+        batch_number:
+          type: string
+          minLength: 1
+          maxLength: 100
+        expiry_date:
+          type: string
+          format: date
+        digital_signature:
+          type: string
+          minLength: 1
+          description: Digital signature from the distributor
+        trust_score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Trust score based on verification (0.00 to 100.00)
+        medicine:
+          type: string
+          format: uuid
+          description: Medicine associated with this lot
+        distributor:
+          type: string
+          format: uuid
+          description: Distributor who provided this lot
+      required:
+      - batch_number
+      - digital_signature
+      - distributor
+      - expiry_date
+      - medicine
+    Medicine:
+      type: object
+      description: Serializer for the Medicine model with detailed pharmaceutical
+        information.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        name:
+          type: string
+          description: Product name
+          maxLength: 255
+        category:
+          type: string
+          description: Medicine category (e.g., Antibiotic, Analgesic)
+          maxLength: 100
+        active_ingredient:
+          type: string
+          description: Active pharmaceutical ingredient (API) or generic name
+          maxLength: 255
+        strength:
+          type: string
+          description: Drug strength (e.g., 500mg, 250mg/5ml)
+          maxLength: 100
+        dosage_form:
+          type: string
+          description: Form of medication (e.g., Tablet, Capsule, Syrup, Injection)
+          maxLength: 100
+        manufacturer_name:
+          type: string
+          description: Name of the manufacturing company
+          maxLength: 255
+        distributor:
+          type: string
+          format: uuid
+          description: Distributor responsible for this medicine
+        distributor_name:
+          type: string
+          readOnly: true
+      required:
+      - distributor
+      - distributor_name
+      - id
+      - name
+    MedicineRequest:
+      type: object
+      description: Serializer for the Medicine model with detailed pharmaceutical
+        information.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Product name
+          maxLength: 255
+        category:
+          type: string
+          description: Medicine category (e.g., Antibiotic, Analgesic)
+          maxLength: 100
+        active_ingredient:
+          type: string
+          description: Active pharmaceutical ingredient (API) or generic name
+          maxLength: 255
+        strength:
+          type: string
+          description: Drug strength (e.g., 500mg, 250mg/5ml)
+          maxLength: 100
+        dosage_form:
+          type: string
+          description: Form of medication (e.g., Tablet, Capsule, Syrup, Injection)
+          maxLength: 100
+        manufacturer_name:
+          type: string
+          description: Name of the manufacturing company
+          maxLength: 255
+        distributor:
+          type: string
+          format: uuid
+          description: Distributor responsible for this medicine
+      required:
+      - distributor
+      - name
+    PaginatedCrowdFlagList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/CrowdFlag'
+    PaginatedDistributorList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Distributor'
+    PaginatedLotManifestList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LotManifest'
+    PaginatedMedicineList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Medicine'
+    PaginatedReceiptEventList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReceiptEvent'
+    PaginatedUserList:
+      type: object
+      properties:
+        count:
+          type: integer
+          example: 123
+        next:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=4
+        previous:
+          type: string
+          nullable: true
+          format: uri
+          example: http://api.example.org/accounts/?page=2
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+    PatchedCrowdFlagRequest:
+      type: object
+      description: Serializer for the CrowdFlag model.
+      properties:
+        reporter_type:
+          type: string
+          minLength: 1
+          description: Type of reporter (e.g., Pharmacist, Patient, Healthcare Worker)
+          maxLength: 50
+        issue_type:
+          type: string
+          minLength: 1
+          description: Type of issue reported (e.g., Counterfeit Suspected, Quality
+            Issue, Packaging Damage)
+          maxLength: 100
+        description:
+          type: string
+          minLength: 1
+          description: Detailed description of the issue
+        user:
+          type: string
+          format: uuid
+          description: User who reported the issue
+        lot:
+          type: string
+          format: uuid
+          description: Lot manifest being flagged
+        is_resolved:
+          type: boolean
+    PatchedDistributorRequest:
+      type: object
+      description: |-
+        Serializer for the Distributor model with automatic Ed25519 key generation.
+
+        When creating a distributor without providing a public_key, the serializer will:
+        1. Generate an Ed25519 key pair
+        2. Store the public key in the database
+        3. Return the private key in the response (for secure distribution to the vendor)
+
+        The private_key is write-only and only appears in the creation response.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        is_verified_regulator:
+          type: boolean
+          description: Whether this distributor is verified by regulatory authorities
+    PatchedLotManifestRequest:
+      type: object
+      description: Serializer for the LotManifest model.
+      properties:
+        batch_number:
+          type: string
+          minLength: 1
+          maxLength: 100
+        expiry_date:
+          type: string
+          format: date
+        digital_signature:
+          type: string
+          minLength: 1
+          description: Digital signature from the distributor
+        trust_score:
+          type: string
+          format: decimal
+          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          description: Trust score based on verification (0.00 to 100.00)
+        medicine:
+          type: string
+          format: uuid
+          description: Medicine associated with this lot
+        distributor:
+          type: string
+          format: uuid
+          description: Distributor who provided this lot
+    PatchedMedicineRequest:
+      type: object
+      description: Serializer for the Medicine model with detailed pharmaceutical
+        information.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Product name
+          maxLength: 255
+        category:
+          type: string
+          description: Medicine category (e.g., Antibiotic, Analgesic)
+          maxLength: 100
+        active_ingredient:
+          type: string
+          description: Active pharmaceutical ingredient (API) or generic name
+          maxLength: 255
+        strength:
+          type: string
+          description: Drug strength (e.g., 500mg, 250mg/5ml)
+          maxLength: 100
+        dosage_form:
+          type: string
+          description: Form of medication (e.g., Tablet, Capsule, Syrup, Injection)
+          maxLength: 100
+        manufacturer_name:
+          type: string
+          description: Name of the manufacturing company
+          maxLength: 255
+        distributor:
+          type: string
+          format: uuid
+          description: Distributor responsible for this medicine
+    PatchedUserRequest:
+      type: object
+      description: |-
+        Serializer for the User model with password handling.
+
+        Includes password and password2 fields for registration/updates.
+        Passwords are write-only and properly hashed using set_password().
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+          description: User password (min 8 characters)
+        password2:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: Password confirmation
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+    ReceiptEvent:
+      type: object
+      description: Serializer for the ReceiptEvent model.
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        location_coord:
+          description: 'Geographic coordinates in JSON format (e.g., {''lat'': 40.7128,
+            ''lng'': -74.0060})'
+        user:
+          type: string
+          format: uuid
+          description: User who scanned/received the lot
+        user_username:
+          type: string
+          readOnly: true
+        lot:
+          type: string
+          format: uuid
+          description: Lot manifest that was scanned/received
+        lot_batch_number:
+          type: string
+          readOnly: true
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+      required:
+      - created_at
+      - id
+      - location_coord
+      - lot
+      - lot_batch_number
+      - user
+      - user_username
+    ReceiptEventRequest:
+      type: object
+      description: Serializer for the ReceiptEvent model.
+      properties:
+        location_coord:
+          description: 'Geographic coordinates in JSON format (e.g., {''lat'': 40.7128,
+            ''lng'': -74.0060})'
+        user:
+          type: string
+          format: uuid
+          description: User who scanned/received the lot
+        lot:
+          type: string
+          format: uuid
+          description: Lot manifest that was scanned/received
+      required:
+      - location_coord
+      - lot
+      - user
+    RoleEnum:
+      enum:
+      - Admin
+      - Pharmacist
+      - Patient
+      type: string
+      description: |-
+        * `Admin` - Admin
+        * `Pharmacist` - Pharmacist
+        * `Patient` - Patient
+    TokenObtainPair:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+          readOnly: true
+      required:
+      - access
+      - refresh
+    TokenObtainPairRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          writeOnly: true
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - password
+      - username
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+    User:
+      type: object
+      description: |-
+        Serializer for the User model with password handling.
+
+        Includes password and password2 fields for registration/updates.
+        Passwords are write-only and properly hashed using set_password().
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        username:
+          type: string
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        date_joined:
+          type: string
+          format: date-time
+          readOnly: true
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+      required:
+      - date_joined
+      - id
+      - username
+    UserRequest:
+      type: object
+      description: |-
+        Serializer for the User model with password handling.
+
+        Includes password and password2 fields for registration/updates.
+        Passwords are write-only and properly hashed using set_password().
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: Required. 150 characters or fewer. Letters, digits and @/./+/-/_
+            only.
+          pattern: ^[\w.@+-]+$
+          maxLength: 150
+        email:
+          type: string
+          format: email
+          title: Email address
+          maxLength: 254
+        password:
+          type: string
+          writeOnly: true
+          minLength: 8
+          description: User password (min 8 characters)
+        password2:
+          type: string
+          writeOnly: true
+          minLength: 1
+          description: Password confirmation
+        role:
+          $ref: '#/components/schemas/RoleEnum'
+        first_name:
+          type: string
+          maxLength: 150
+        last_name:
+          type: string
+          maxLength: 150
+        is_active:
+          type: boolean
+          title: Active
+          description: Designates whether this user should be treated as active. Unselect
+            this instead of deleting accounts.
+      required:
+      - password
+      - password2
+      - username
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+tags:
+- name: Authentication
+  description: JWT token management
+- name: Users
+  description: User account management
+- name: Distributors
+  description: Pharmaceutical distributor management
+- name: Medicines
+  description: Medicine catalog operations
+- name: Manifests
+  description: Lot manifest and signature verification
+- name: Receipts
+  description: Receipt event tracking
+- name: Flags
+  description: Crowdsourced quality reports
