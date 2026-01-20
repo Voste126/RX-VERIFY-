@@ -7,6 +7,7 @@ signature verification endpoint.
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResponse, OpenApiExample
 
 from .models import LotManifest
@@ -299,6 +300,147 @@ class LotManifestViewSet(viewsets.ModelViewSet):
             "trust_score": str(lot_manifest.trust_score),
             "status": status_text,
             "timestamp": current_timestamp
+        }
+        
+        return Response(response_data, status=status.HTTP_200_OK)
+    
+    @extend_schema(
+        summary="Patient QR Code Verification (Public)",
+        description="""
+        Public endpoint for patients to verify medicine authenticity via QR code.
+        
+        **Patient Workflow:**
+        1. Patient scans QR code on medicine packet
+        2. Mobile app extracts lot_id from QR code
+        3. App calls this endpoint (NO authentication required)
+        4. Patient sees medicine details and trust score
+        5. Patient can raise flag if suspicious
+        
+        **Trust Score Status:**
+        - SAFE (80-100): Medicine is verified safe ✓
+        - CAUTION (60-79): Some concerns reported ⚠️
+        - WARNING (0-59): Multiple issues, avoid use ❌
+        
+        **Returns:**
+        - Medicine name, strength, and details
+        - Distributor information
+        - Trust score with color-coded status
+        - Signature verification status
+        - Expiry date
+        - Count of unresolved quality flags
+        
+        **No authentication required** - Public access for patient verification.
+        """,
+        tags=['Patient Verification'],
+        responses={
+            200: OpenApiResponse(
+                description="Patient-friendly verification response",
+                response={
+                    'type': 'object',
+                    'properties': {
+                        'lot_id': {'type': 'string', 'format': 'uuid'},
+                        'batch_number': {'type': 'string'},
+                        'medicine': {
+                            'type': 'object',
+                            'properties': {
+                                'name': {'type': 'string'},
+                                'active_ingredient': {'type': 'string'},
+                                'strength': {'type': 'string'},
+                                'dosage_form': {'type': 'string'},
+                            }
+                        },
+                        'distributor': {'type': 'string'},
+                        'trust_score': {'type': 'number'},
+                        'trust_status': {'type': 'string', 'enum': ['SAFE', 'CAUTION', 'WARNING']},
+                        'is_authentic': {'type': 'boolean'},
+                        'verification_message': {'type': 'string'},
+                        'expiry_date': {'type': 'string', 'format': 'date'},
+                        'flags_count': {'type': 'integer'},
+                        'can_report': {'type': 'boolean'},
+                        'report_url': {'type': 'string'},
+                    }
+                }
+            ),
+            404: OpenApiResponse(description="Lot manifest not found"),
+        },
+        examples=[
+            OpenApiExample(
+                'Safe Medicine',
+                value={
+                    "lot_id": "494466b3-0f94-4f5c-8a12-38e403fcf3e7",
+                    "batch_number": "BATCH-2024-PCM-001",
+                    "medicine": {
+                        "name": "Paracetamol Tablets",
+                        "active_ingredient": "Paracetamol",
+                        "strength": "500mg",
+                        "dosage_form": "Tablet"
+                    },
+                    "distributor": "HealthDist Kenya Ltd",
+                    "expiry_date": "2028-11-15",
+                    "trust_score": 95.00,
+                    "trust_status": "SAFE",
+                    "is_authentic": True,
+                    "verification_message": "Verified",
+                    "flags_count": 0,
+                    "can_report": True,
+                    "report_url": "/api/flags/"
+                },
+                response_only=True,
+            ),
+        ],
+    )
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny], url_path='verify-qr')
+    def verify_qr(self, request, pk=None):
+        """
+        Patient QR Code Verification Endpoint.
+        
+        Public endpoint - no authentication required.
+        Patients scan QR code on medicine packet to verify authenticity.
+        
+        Args:
+            request: The HTTP request object
+            pk: The primary key (UUID) of the lot manifest
+        
+        Returns:
+            Response: Patient-friendly verification data
+        """
+        lot_manifest = self.get_object()
+        
+        # Determine trust status based on score
+        trust_score = float(lot_manifest.trust_score)
+        if trust_score >= 80:
+            trust_status = "SAFE"
+        elif trust_score >= 60:
+            trust_status = "CAUTION"
+        else:
+            trust_status = "WARNING"
+        
+        # Count unresolved flags
+        flags_count = lot_manifest.crowd_flags.filter(is_resolved=False).count()
+        
+        # Verify signature
+        is_authentic = lot_manifest.verify_signature()
+        verification_message = "Verified ✓" if is_authentic else "⚠️ Verification Failed - Possible Counterfeit"
+        
+        # Construct patient-friendly response
+        response_data = {
+            "lot_id": str(lot_manifest.id),
+            "batch_number": lot_manifest.batch_number,
+            "medicine": {
+                "name": lot_manifest.medicine.name,
+                "active_ingredient": lot_manifest.medicine.active_ingredient,
+                "strength": lot_manifest.medicine.strength,
+                "dosage_form": lot_manifest.medicine.dosage_form,
+            },
+            "distributor": lot_manifest.distributor.name,
+            "expiry_date": lot_manifest.expiry_date.isoformat(),
+            "trust_score": trust_score,
+            "trust_status": trust_status,
+            "is_authentic": is_authentic,
+            "verification_message": verification_message,
+            "flags_count": flags_count,
+            "can_report": True,
+            "report_url": "/api/flags/"
         }
         
         return Response(response_data, status=status.HTTP_200_OK)

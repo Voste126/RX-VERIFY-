@@ -5,7 +5,8 @@ This module provides ViewSets for distributor CRUD operations with filtering cap
 """
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 from .models import Distributor
 from .serializers import DistributorSerializer
@@ -15,18 +16,60 @@ from accounts.permissions import IsAdminOrReadOnly
 @extend_schema_view(
     list=extend_schema(
         summary="List all distributors",
-        description="Retrieve a paginated list of pharmaceutical distributors with filtering options.",
+        description="Retrieve a paginated list of pharmaceutical distributors with verification status filtering.",
         tags=['Distributors'],
+        parameters=[
+            OpenApiParameter(
+                name='verified',
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description='Filter by regulatory verification status',
+                examples=[
+                    OpenApiExample('Verified Only', value='true'),
+                    OpenApiExample('Unverified Only', value='false'),
+                ]
+            ),
+        ],
     ),
     retrieve=extend_schema(
         summary="Retrieve distributor details",
-        description="Get detailed information about a specific distributor including verification status.",
+        description="Get detailed information about a specific distributor including verification status and public key.",
         tags=['Distributors'],
     ),
     create=extend_schema(
         summary="Create new distributor",
-        description="Register a new pharmaceutical distributor. Requires admin role.",
+        description="""
+        Register a new pharmaceutical distributor with Ed25519 public key.
+        
+        **Public Key Format:**
+        - Must be 64 hexadecimal characters (0-9, a-f)
+        - Represents Ed25519 public key for signature verification
+        - Generated off-server by distributor's private key
+        - Used to verify lot manifest signatures
+        
+        **Requires admin role.**
+        """,
         tags=['Distributors'],
+        examples=[
+            OpenApiExample(
+                'New Distributor',
+                value={
+                    "name": "HealthDist Kenya Ltd",
+                    "public_key": "a" * 64,
+                    "is_verified_regulator": False
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                'Verified Distributor',
+                value={
+                    "name": "PharmaCorp East Africa",
+                    "public_key": "b" * 64,
+                    "is_verified_regulator": True
+                },
+                request_only=True,
+            ),
+        ],
     ),
     update=extend_schema(
         summary="Update distributor",

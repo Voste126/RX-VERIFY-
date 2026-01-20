@@ -11,8 +11,9 @@ class CrowdFlagSerializer(serializers.ModelSerializer):
     class Meta:
         model = CrowdFlag
         fields = [
-            'id', 'reporter_type', 'issue_type', 'description', 
+            'id', 'reporter_type', 'issue_type', 'severity', 'description', 
             'user', 'user_username', 'lot', 'lot_batch_number', 
             'created_at', 'is_resolved'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']
+

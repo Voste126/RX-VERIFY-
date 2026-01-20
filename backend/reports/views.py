@@ -7,7 +7,8 @@ user association and patient/pharmacist permissions.
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 from .models import CrowdFlag
 from .serializers import CrowdFlagSerializer
@@ -17,18 +18,137 @@ from accounts.permissions import IsPatientOrPharmacist
 @extend_schema_view(
     list=extend_schema(
         summary="List all crowd flags",
-        description="Retrieve a paginated list of quality reports and flags with filtering options.",
+        description="Retrieve quality reports with comprehensive filtering options including severity level.",
         tags=['Flags'],
+        parameters=[
+            OpenApiParameter(
+                name='resolved',
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description='Filter by resolution status',
+                examples=[
+                    OpenApiExample('Unresolved Only', value='false'),
+                    OpenApiExample('Resolved Only', value='true'),
+                ]
+            ),
+            OpenApiParameter(
+                name='severity',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Filter by severity level (impacts trust score)',
+                examples=[
+                    OpenApiExample('Critical Issues', value='CRITICAL'),
+                    OpenApiExample('High Priority', value='HIGH'),
+                    OpenApiExample('Medium Priority', value='MEDIUM'),
+                    OpenApiExample('Low Priority', value='LOW'),
+                ]
+            ),
+            OpenApiParameter(
+                name='issue_type',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Filter by issue type (case-insensitive)',
+                examples=[
+                    OpenApiExample('Counterfeits', value='Counterfeit Suspected'),
+                    OpenApiExample('Quality Issues', value='Quality Issue'),
+                ]
+            ),
+            OpenApiParameter(
+                name='reporter_type',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Filter by reporter type'
+            ),
+            OpenApiParameter(
+                name='lot',
+                type=OpenApiTypes.UUID,
+                location=OpenApiParameter.QUERY,
+                description='Filter by lot manifest ID'
+            ),
+            OpenApiParameter(
+                name='my_flags',
+                type=OpenApiTypes.BOOL,
+                location=OpenApiParameter.QUERY,
+                description='Show only flags created by current user',
+                examples=[
+                    OpenApiExample('My Flags Only', value='true'),
+                ]
+            ),
+        ],
     ),
     retrieve=extend_schema(
         summary="Retrieve crowd flag details",
-        description="Get detailed information about a specific quality report.",
+        description="Get detailed information about a specific quality report including severity and resolution status.",
         tags=['Flags'],
     ),
     create=extend_schema(
         summary="Create new crowd flag",
-        description="Submit a new quality report or flag. Automatically associates the authenticated user. Patients and pharmacists can create flags.",
+        description="""
+        Submit a quality report with severity categorization.
+        
+        **Severity Levels & Trust Score Impact:**
+        - CRITICAL: -15.00 points (counterfeits, safety hazards)
+        - HIGH: -10.00 points (significant quality issues)
+        - MEDIUM: -5.00 points (notable concerns) [DEFAULT]
+        - LOW: -2.00 points (minor issues)
+        
+        **Auto-Populated Fields:**
+        - `user`: Automatically set to authenticated user (DO NOT include!)
+        - `created_at`: Auto-timestamp
+        - `is_resolved`: Defaults to false
+        
+        **Side Effect:**
+        ⚠️ Automatically decreases lot trust_score in REAL-TIME based on severity!
+        
+        **DO NOT include** the `user` field in your request!
+        """,
         tags=['Flags'],
+        examples=[
+            OpenApiExample(
+                'Critical - Counterfeit Suspected',
+                value={
+                    "reporter_type": "Pharmacist",
+                    "issue_type": "Counterfeit Suspected",
+                    "severity": "CRITICAL",
+                    "description": "Fake hologram detected, packaging differs from authentic batches. Seal appears professionally resealed.",
+                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                'High - Quality Issue',
+                value={
+                    "reporter_type": "Pharmacist",
+                    "issue_type": "Quality Issue",
+                    "severity": "HIGH",
+                    "description": "Tablets are discolored and crumbling. Unusual odor detected.",
+                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                'Medium - Packaging Damage',
+                value={
+                    "reporter_type": "Patient",
+                    "issue_type": "Packaging Damage",
+                    "severity": "MEDIUM",
+                    "description": "Seal appears tampered with, but contents seem intact.",
+                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                'Low - Minor Issue',
+                value={
+                    "reporter_type": "Patient",
+                    "issue_type": "Minor Issue",
+                    "severity": "LOW",
+                    "description": "Label slightly faded but still readable. No quality concerns.",
+                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
+                },
+                request_only=True,
+            ),
+        ],
     ),
     update=extend_schema(
         summary="Update crowd flag",
@@ -83,6 +203,7 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
             resolved (bool): Filter by resolution status
             issue_type (str): Filter by issue type
             reporter_type (str): Filter by reporter type
+            severity (str): Filter by severity level (CRITICAL, HIGH, MEDIUM, LOW)
             lot (uuid): Filter by lot manifest ID
             my_flags (bool): Filter to show only current user's flags
         
@@ -106,6 +227,11 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
         reporter_type = self.request.query_params.get('reporter_type', None)
         if reporter_type:
             queryset = queryset.filter(reporter_type__icontains=reporter_type)
+        
+        # Filter by severity if param provided
+        severity = self.request.query_params.get('severity', None)
+        if severity:
+            queryset = queryset.filter(severity=severity.upper())
         
         # Filter by lot if param provided
         lot_id = self.request.query_params.get('lot', None)
@@ -134,7 +260,17 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
     
     @extend_schema(
         summary="Mark flag as resolved",
-        description="Mark a quality report as resolved. Typically used by administrators.",
+        description="""
+        Mark a quality report as resolved after investigation.
+        
+        **Side Effect:**
+        ⚠️ Automatically recalculates lot trust_score in REAL-TIME!
+        The trust score will INCREASE as this flag is no longer counted in penalties.
+        
+        **No request body required** - Just POST to this endpoint.
+        
+        Typically used by administrators after investigation.
+        """,
         tags=['Flags'],
         responses={200: CrowdFlagSerializer},
     )
@@ -159,7 +295,17 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
     
     @extend_schema(
         summary="Mark flag as unresolved",
-        description="Mark a quality report as unresolved. Used to reopen resolved issues.",
+        description="""
+        Mark a quality report as unresolved (reopen a resolved issue).
+        
+        **Side Effect:**
+        ⚠️ Automatically recalculates lot trust_score in REAL-TIME!
+        The trust score will DECREASE as this flag is now counted in penalties again.
+        
+        **No request body required** - Just POST to this endpoint.
+        
+        Used to reopen resolved issues if new information emerges.
+        """,
         tags=['Flags'],
         responses={200: CrowdFlagSerializer},
     )

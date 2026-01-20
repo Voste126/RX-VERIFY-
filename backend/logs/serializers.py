@@ -14,4 +14,4 @@ class ReceiptEventSerializer(serializers.ModelSerializer):
             'id', 'location_coord', 'user', 'user_username', 
             'lot', 'lot_batch_number', 'created_at'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'user', 'created_at']

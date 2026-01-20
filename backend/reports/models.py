@@ -17,6 +17,21 @@ class CrowdFlag(models.Model):
     description = models.TextField(
         help_text="Detailed description of the issue"
     )
+    
+    SEVERITY_CHOICES = [
+        ('CRITICAL', 'Critical - Immediate safety concern'),
+        ('HIGH', 'High - Significant quality issue'),
+        ('MEDIUM', 'Medium - Notable concern'),
+        ('LOW', 'Low - Minor issue'),
+    ]
+    
+    severity = models.CharField(
+        max_length=10,
+        choices=SEVERITY_CHOICES,
+        default='MEDIUM',
+        db_index=True,
+        help_text="Severity level of the reported issue (impacts trust score calculation)"
+    )
     user = models.ForeignKey(
         'accounts.User',
         on_delete=models.CASCADE,

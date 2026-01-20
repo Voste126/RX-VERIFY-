@@ -85,6 +85,64 @@ class LotManifest(models.Model):
         except Exception:
             return False
     
+    def calculate_trust_score(self):
+        """
+        Calculate trust score based on unresolved crowd flags.
+        
+        Trust Score Algorithm:
+        - Base score: 100.00
+        - CRITICAL flags: -15.00 each
+        - HIGH flags: -10.00 each
+        - MEDIUM flags: -5.00 each
+        - LOW flags: -2.00 each
+        - Minimum score: 0.00 (cannot go below zero)
+        
+        Returns:
+            Decimal: Calculated trust score (0.00 to 100.00)
+        """
+        from decimal import Decimal
+        
+        # Start with base score
+        base_score = Decimal('100.00')
+        
+        # Get all unresolved flags for this lot
+        unresolved_flags = self.crowd_flags.filter(is_resolved=False)
+        
+        # Severity penalties
+        severity_penalties = {
+            'CRITICAL': Decimal('15.00'),
+            'HIGH': Decimal('10.00'),
+            'MEDIUM': Decimal('5.00'),
+            'LOW': Decimal('2.00'),
+        }
+        
+        # Calculate total deductions
+        total_deduction = Decimal('0.00')
+        for flag in unresolved_flags:
+            penalty = severity_penalties.get(flag.severity, Decimal('5.00'))
+            total_deduction += penalty
+        
+        # Calculate final score (ensure it doesn't go below 0)
+        final_score = max(Decimal('0.00'), base_score - total_deduction)
+        
+        return final_score
+    
+    def update_trust_score(self):
+        """
+        Recalculate and save the trust score.
+        
+        This method should be called whenever:
+        - A new flag is created for this lot
+        - A flag is resolved or unresolved
+        - A flag is deleted
+        
+        Returns:
+            Decimal: The updated trust score
+        """
+        self.trust_score = self.calculate_trust_score()
+        self.save(update_fields=['trust_score'])
+        return self.trust_score
+    
     def __str__(self):
         return f"Lot {self.batch_number} - {self.medicine.name}"
     

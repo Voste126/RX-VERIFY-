@@ -63,8 +63,8 @@ paths:
   /api/distributors/:
     get:
       operationId: distributors_list
-      description: Retrieve a paginated list of pharmaceutical distributors with filtering
-        options.
+      description: Retrieve a paginated list of pharmaceutical distributors with verification
+        status filtering.
       summary: List all distributors
       parameters:
       - name: ordering
@@ -85,6 +85,18 @@ paths:
         description: A search term.
         schema:
           type: string
+      - in: query
+        name: verified
+        schema:
+          type: boolean
+        description: Filter by regulatory verification status
+        examples:
+          VerifiedOnly:
+            value: 'true'
+            summary: Verified Only
+          UnverifiedOnly:
+            value: 'false'
+            summary: Unverified Only
       tags:
       - Distributors
       security:
@@ -99,7 +111,12 @@ paths:
           description: ''
     post:
       operationId: distributors_create
-      description: Register a new pharmaceutical distributor. Requires admin role.
+      description: "\n        Register a new pharmaceutical distributor with Ed25519\
+        \ public key.\n        \n        **Public Key Format:**\n        - Must be\
+        \ 64 hexadecimal characters (0-9, a-f)\n        - Represents Ed25519 public\
+        \ key for signature verification\n        - Generated off-server by distributor's\
+        \ private key\n        - Used to verify lot manifest signatures\n        \n\
+        \        **Requires admin role.**\n        "
       summary: Create new distributor
       tags:
       - Distributors
@@ -108,6 +125,19 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/DistributorRequest'
+            examples:
+              NewDistributor:
+                value:
+                  name: HealthDist Kenya Ltd
+                  public_key: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+                  is_verified_regulator: false
+                summary: New Distributor
+              VerifiedDistributor:
+                value:
+                  name: PharmaCorp East Africa
+                  public_key: bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+                  is_verified_regulator: true
+                summary: Verified Distributor
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/DistributorRequest'
@@ -129,7 +159,7 @@ paths:
     get:
       operationId: distributors_retrieve
       description: Get detailed information about a specific distributor including
-        verification status.
+        verification status and public key.
       summary: Retrieve distributor details
       parameters:
       - in: path
@@ -246,10 +276,36 @@ paths:
   /api/flags/:
     get:
       operationId: flags_list
-      description: Retrieve a paginated list of quality reports and flags with filtering
-        options.
+      description: Retrieve quality reports with comprehensive filtering options including
+        severity level.
       summary: List all crowd flags
       parameters:
+      - in: query
+        name: issue_type
+        schema:
+          type: string
+        description: Filter by issue type (case-insensitive)
+        examples:
+          Counterfeits:
+            value: Counterfeit Suspected
+          QualityIssues:
+            value: Quality Issue
+            summary: Quality Issues
+      - in: query
+        name: lot
+        schema:
+          type: string
+          format: uuid
+        description: Filter by lot manifest ID
+      - in: query
+        name: my_flags
+        schema:
+          type: boolean
+        description: Show only flags created by current user
+        examples:
+          MyFlagsOnly:
+            value: 'true'
+            summary: My Flags Only
       - name: ordering
         required: false
         in: query
@@ -262,12 +318,47 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - in: query
+        name: reporter_type
+        schema:
+          type: string
+        description: Filter by reporter type
+      - in: query
+        name: resolved
+        schema:
+          type: boolean
+        description: Filter by resolution status
+        examples:
+          UnresolvedOnly:
+            value: 'false'
+            summary: Unresolved Only
+          ResolvedOnly:
+            value: 'true'
+            summary: Resolved Only
       - name: search
         required: false
         in: query
         description: A search term.
         schema:
           type: string
+      - in: query
+        name: severity
+        schema:
+          type: string
+        description: Filter by severity level (impacts trust score)
+        examples:
+          CriticalIssues:
+            value: CRITICAL
+            summary: Critical Issues
+          HighPriority:
+            value: HIGH
+            summary: High Priority
+          MediumPriority:
+            value: MEDIUM
+            summary: Medium Priority
+          LowPriority:
+            value: LOW
+            summary: Low Priority
       tags:
       - Flags
       security:
@@ -282,8 +373,17 @@ paths:
           description: ''
     post:
       operationId: flags_create
-      description: Submit a new quality report or flag. Automatically associates the
-        authenticated user. Patients and pharmacists can create flags.
+      description: "\n        Submit a quality report with severity categorization.\n\
+        \        \n        **Severity Levels & Trust Score Impact:**\n        - CRITICAL:\
+        \ -15.00 points (counterfeits, safety hazards)\n        - HIGH: -10.00 points\
+        \ (significant quality issues)\n        - MEDIUM: -5.00 points (notable concerns)\
+        \ [DEFAULT]\n        - LOW: -2.00 points (minor issues)\n        \n      \
+        \  **Auto-Populated Fields:**\n        - `user`: Automatically set to authenticated\
+        \ user (DO NOT include!)\n        - `created_at`: Auto-timestamp\n       \
+        \ - `is_resolved`: Defaults to false\n        \n        **Side Effect:**\n\
+        \        ⚠️ Automatically decreases lot trust_score in REAL-TIME based on\
+        \ severity!\n        \n        **DO NOT include** the `user` field in your\
+        \ request!\n        "
       summary: Create new crowd flag
       tags:
       - Flags
@@ -292,6 +392,42 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CrowdFlagRequest'
+            examples:
+              Critical-CounterfeitSuspected:
+                value:
+                  reporter_type: Pharmacist
+                  issue_type: Counterfeit Suspected
+                  severity: CRITICAL
+                  description: Fake hologram detected, packaging differs from authentic
+                    batches. Seal appears professionally resealed.
+                  lot: 494466b3-0f94-4f5c-8a12-38e403fcf3e7
+                summary: Critical - Counterfeit Suspected
+              High-QualityIssue:
+                value:
+                  reporter_type: Pharmacist
+                  issue_type: Quality Issue
+                  severity: HIGH
+                  description: Tablets are discolored and crumbling. Unusual odor
+                    detected.
+                  lot: 494466b3-0f94-4f5c-8a12-38e403fcf3e7
+                summary: High - Quality Issue
+              Medium-PackagingDamage:
+                value:
+                  reporter_type: Patient
+                  issue_type: Packaging Damage
+                  severity: MEDIUM
+                  description: Seal appears tampered with, but contents seem intact.
+                  lot: 494466b3-0f94-4f5c-8a12-38e403fcf3e7
+                summary: Medium - Packaging Damage
+              Low-MinorIssue:
+                value:
+                  reporter_type: Patient
+                  issue_type: Minor Issue
+                  severity: LOW
+                  description: Label slightly faded but still readable. No quality
+                    concerns.
+                  lot: 494466b3-0f94-4f5c-8a12-38e403fcf3e7
+                summary: Low - Minor Issue
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/CrowdFlagRequest'
@@ -312,7 +448,8 @@ paths:
   /api/flags/{id}/:
     get:
       operationId: flags_retrieve
-      description: Get detailed information about a specific quality report.
+      description: Get detailed information about a specific quality report including
+        severity and resolution status.
       summary: Retrieve crowd flag details
       parameters:
       - in: path
@@ -428,7 +565,12 @@ paths:
   /api/flags/{id}/resolve/:
     post:
       operationId: flags_resolve_create
-      description: Mark a quality report as resolved. Typically used by administrators.
+      description: "\n        Mark a quality report as resolved after investigation.\n\
+        \        \n        **Side Effect:**\n        ⚠️ Automatically recalculates\
+        \ lot trust_score in REAL-TIME!\n        The trust score will INCREASE as\
+        \ this flag is no longer counted in penalties.\n        \n        **No request\
+        \ body required** - Just POST to this endpoint.\n        \n        Typically\
+        \ used by administrators after investigation.\n        "
       summary: Mark flag as resolved
       parameters:
       - in: path
@@ -465,7 +607,12 @@ paths:
   /api/flags/{id}/unresolve/:
     post:
       operationId: flags_unresolve_create
-      description: Mark a quality report as unresolved. Used to reopen resolved issues.
+      description: "\n        Mark a quality report as unresolved (reopen a resolved\
+        \ issue).\n        \n        **Side Effect:**\n        ⚠️ Automatically recalculates\
+        \ lot trust_score in REAL-TIME!\n        The trust score will DECREASE as\
+        \ this flag is now counted in penalties again.\n        \n        **No request\
+        \ body required** - Just POST to this endpoint.\n        \n        Used to\
+        \ reopen resolved issues if new information emerges.\n        "
       summary: Mark flag as unresolved
       parameters:
       - in: path
@@ -537,8 +684,17 @@ paths:
           description: ''
     post:
       operationId: manifests_create
-      description: Register a new lot/batch manifest with digital signature. Requires
-        admin role.
+      description: "\n        Register a new lot/batch manifest with **auto-generated**\
+        \ Ed25519 digital signature.\n        \n        **Auto-Generated Fields:**\n\
+        \        - `digital_signature`: Ed25519 signature (128 hex chars)\n      \
+        \    * Signed message: batch_number:expiry_date:distributor_id\n         \
+        \ * Auto-generated using derived signing key\n        - `trust_score`: Automatically\
+        \ set to 100.00 (IMMUTABLE)\n        \n        **Required Fields:**\n    \
+        \    - `batch_number`: Unique lot/batch identifier\n        - `expiry_date`:\
+        \ Medicine expiration date (YYYY-MM-DD)\n        - `medicine`: Medicine UUID\n\
+        \        - `distributor`: Distributor UUID\n        \n        **DO NOT provide**\
+        \ `digital_signature` or `trust_score` - they are auto-generated and immutable!\n\
+        \        \n        Requires admin role.\n        "
       summary: Create new lot manifest
       tags:
       - Manifests
@@ -547,6 +703,14 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LotManifestRequest'
+            examples:
+              ParacetamolLot:
+                value:
+                  batch_number: PCM-2026-KE-00142
+                  expiry_date: '2028-11-15'
+                  medicine: f9e8d7c6-b5a4-4321-9876-fedcba098765
+                  distributor: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                summary: Paracetamol Lot
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/LotManifestRequest'
@@ -592,7 +756,15 @@ paths:
           description: ''
     put:
       operationId: manifests_update
-      description: Update all fields of an existing lot manifest. Requires admin role.
+      description: "\n        Update lot manifest fields with AUTOMATIC signature\
+        \ regeneration.\n        \n        **Updatable Fields:**\n        - `batch_number`:\
+        \ Lot/batch identifier\n        - `expiry_date`: Medicine expiration date\n\
+        \        - `medicine`: Medicine UUID\n        - `distributor`: Distributor\
+        \ UUID\n        \n        **IMMUTABLE Fields (Auto-Managed):**\n        -\
+        \ `digital_signature`: ALWAYS auto-regenerated after update\n        - `trust_score`:\
+        \ CANNOT be changed (locked at 100.00)\n        \n        **Behavior:**\n\
+        \        - Any update will regenerate the digital signature\n        - trust_score\
+        \ is ignored if provided\n        \n        Requires admin role.\n        "
       summary: Update lot manifest
       parameters:
       - in: path
@@ -609,6 +781,14 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/LotManifestRequest'
+            examples:
+              UpdateBatchNumber:
+                value:
+                  batch_number: PCM-2026-KE-UPDATED
+                  expiry_date: '2028-11-15'
+                  medicine: f9e8d7c6-b5a4-4321-9876-fedcba098765
+                  distributor: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                summary: Update Batch Number
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/LotManifestRequest'
@@ -628,7 +808,15 @@ paths:
           description: ''
     patch:
       operationId: manifests_partial_update
-      description: Update specific fields of a lot manifest. Requires admin role.
+      description: "\n        Partially update lot manifest with AUTOMATIC signature\
+        \ regeneration.\n        \n        **Updatable Fields:**\n        - `batch_number`:\
+        \ Lot/batch identifier\n        - `expiry_date`: Medicine expiration date\
+        \  \n        - `medicine`: Medicine UUID\n        - `distributor`: Distributor\
+        \ UUID\n        \n        **IMMUTABLE Fields:**\n        - `trust_score`:\
+        \ Cannot be updated (ignored if provided)\n        - `digital_signature`:\
+        \ Always auto-regenerated\n        \n        **Note:** Even partial updates\
+        \ trigger signature regeneration!\n        \n        Requires admin role.\n\
+        \        "
       summary: Partially update lot manifest
       parameters:
       - in: path
@@ -645,6 +833,15 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/PatchedLotManifestRequest'
+            examples:
+              UpdateOnlyBatchNumber:
+                value:
+                  batch_number: PCM-2026-KE-MODIFIED
+                summary: Update Only Batch Number
+              UpdateExpiryDate:
+                value:
+                  expiry_date: '2029-12-31'
+                summary: Update Expiry Date
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/PatchedLotManifestRequest'
@@ -685,14 +882,23 @@ paths:
   /api/manifests/{id}/verify/:
     post:
       operationId: manifests_verify_create
-      description: "\n        Verify the digital signature of a lot manifest.\n  \
-        \      \n        This endpoint calls the verify_signature() model method to\
-        \ validate the \n        cryptographic signature against the distributor's\
-        \ public key.\n        \n        Returns a structured JSON response with:\n\
-        \        - status: \"Verified\", \"Forged\", or \"Unknown\"\n        - is_authentic:\
-        \ Boolean indicating signature validity\n        - lot_details: Complete lot\
-        \ manifest information\n        "
-      summary: Verify lot manifest signature
+      description: "\n        Verify the Ed25519 digital signature of a lot manifest\
+        \ using cryptographic verification.\n        \n        **SECURITY ARCHITECTURE:**\n\
+        \        - The distributor signed this manifest OFF-SERVER using their Ed25519\
+        \ private key\n        - The private key NEVER touches this server\n     \
+        \   - We only use the distributor's PUBLIC KEY stored in the database\n  \
+        \      - PyNaCl library performs Ed25519 elliptic curve cryptography verification\n\
+        \        \n        **How It Works:**\n        1. Construct message: \"{batch_number}:{expiry_date}:{distributor_id}\"\
+        \n        2. Retrieve distributor's Ed25519 public key from database\n   \
+        \     3. Use PyNaCl to verify the signature cryptographically\n        4.\
+        \ Return verification result with timestamp\n        \n        **No Request\
+        \ Body Required** - Just POST to the endpoint.\n        \n        Returns\
+        \ a structured JSON response with:\n        - **is_authentic**: Boolean -\
+        \ True if cryptographically valid\n        - **trust_score**: Current trust\
+        \ score from database\n        - **status**: \"Verified\" or \"Forged/Tampered\"\
+        \n        - **timestamp**: Server time of verification (ISO 8601)\n      \
+        \  "
+      summary: Verify Ed25519 lot manifest signature
       parameters:
       - in: path
         name: id
@@ -725,17 +931,120 @@ paths:
               schema:
                 type: object
                 properties:
+                  is_authentic:
+                    type: boolean
+                  trust_score:
+                    type: string
                   status:
                     type: string
                     enum:
                     - Verified
-                    - Forged
-                    - Unknown
+                    - Forged/Tampered
+                  timestamp:
+                    type: string
+                    format: date-time
+          description: Ed25519 signature verification result
+        '404':
+          description: Lot manifest not found
+  /api/manifests/{id}/verify-qr/:
+    get:
+      operationId: manifests_verify_qr_retrieve
+      description: "\n        Public endpoint for patients to verify medicine authenticity\
+        \ via QR code.\n        \n        **Patient Workflow:**\n        1. Patient\
+        \ scans QR code on medicine packet\n        2. Mobile app extracts lot_id\
+        \ from QR code\n        3. App calls this endpoint (NO authentication required)\n\
+        \        4. Patient sees medicine details and trust score\n        5. Patient\
+        \ can raise flag if suspicious\n        \n        **Trust Score Status:**\n\
+        \        - SAFE (80-100): Medicine is verified safe ✓\n        - CAUTION (60-79):\
+        \ Some concerns reported ⚠️\n        - WARNING (0-59): Multiple issues, avoid\
+        \ use ❌\n        \n        **Returns:**\n        - Medicine name, strength,\
+        \ and details\n        - Distributor information\n        - Trust score with\
+        \ color-coded status\n        - Signature verification status\n        - Expiry\
+        \ date\n        - Count of unresolved quality flags\n        \n        **No\
+        \ authentication required** - Public access for patient verification.\n  \
+        \      "
+      summary: Patient QR Code Verification (Public)
+      parameters:
+      - in: path
+        name: id
+        schema:
+          type: string
+          format: uuid
+        description: A UUID string identifying this Lot Manifest.
+        required: true
+      tags:
+      - Patient Verification
+      security:
+      - jwtAuth: []
+      - cookieAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lot_id:
+                    type: string
+                    format: uuid
+                  batch_number:
+                    type: string
+                  medicine:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      active_ingredient:
+                        type: string
+                      strength:
+                        type: string
+                      dosage_form:
+                        type: string
+                  distributor:
+                    type: string
+                  trust_score:
+                    type: number
+                  trust_status:
+                    type: string
+                    enum:
+                    - SAFE
+                    - CAUTION
+                    - WARNING
                   is_authentic:
                     type: boolean
-                  lot_details:
-                    type: object
-          description: Signature verification result
+                  verification_message:
+                    type: string
+                  expiry_date:
+                    type: string
+                    format: date
+                  flags_count:
+                    type: integer
+                  can_report:
+                    type: boolean
+                  report_url:
+                    type: string
+              examples:
+                SafeMedicine:
+                  value:
+                    lot_id: 494466b3-0f94-4f5c-8a12-38e403fcf3e7
+                    batch_number: BATCH-2024-PCM-001
+                    medicine:
+                      name: Paracetamol Tablets
+                      active_ingredient: Paracetamol
+                      strength: 500mg
+                      dosage_form: Tablet
+                    distributor: HealthDist Kenya Ltd
+                    expiry_date: '2028-11-15'
+                    trust_score: 95.0
+                    trust_status: SAFE
+                    is_authentic: true
+                    verification_message: Verified
+                    flags_count: 0
+                    can_report: true
+                    report_url: /api/flags/
+                  summary: Safe Medicine
+          description: Patient-friendly verification response
         '404':
           description: Lot manifest not found
   /api/medicines/:
@@ -994,9 +1303,36 @@ paths:
   /api/receipts/:
     get:
       operationId: receipts_list
-      description: Retrieve a paginated list of receipt events with filtering options.
+      description: Retrieve a paginated list of receipt events with filtering by user,
+        lot, or date range.
       summary: List all receipt events
       parameters:
+      - in: query
+        name: date_from
+        schema:
+          type: string
+          format: date
+        description: Filter events from this date onwards (YYYY-MM-DD)
+        examples:
+          StartOfYear:
+            value: '2026-01-01'
+            summary: Start of Year
+      - in: query
+        name: date_to
+        schema:
+          type: string
+          format: date
+        description: Filter events up to this date (YYYY-MM-DD)
+        examples:
+          EndOfMonth:
+            value: '2026-01-31'
+            summary: End of Month
+      - in: query
+        name: lot
+        schema:
+          type: string
+          format: uuid
+        description: Filter by lot manifest ID
       - name: ordering
         required: false
         in: query
@@ -1015,6 +1351,12 @@ paths:
         description: A search term.
         schema:
           type: string
+      - in: query
+        name: user
+        schema:
+          type: string
+          format: uuid
+        description: Filter by user (pharmacist) ID
       tags:
       - Receipts
       security:
@@ -1029,8 +1371,16 @@ paths:
           description: ''
     post:
       operationId: receipts_create
-      description: Record a new receipt event. Automatically associates the authenticated
-        pharmacist as the user. Only pharmacists can create receipt events.
+      description: "\n        Record a new receipt event when a pharmacist receives\
+        \ a pharmaceutical lot.\n        \n        **Auto-Populated Fields:**\n  \
+        \      - `user`: Automatically set to authenticated pharmacist (DO NOT include\
+        \ this field!)\n        - `created_at`: Auto-timestamp\n        \n       \
+        \ **Location Format:**\n        - Provide GPS coordinates as JSON: {\"lat\"\
+        : latitude, \"lng\": longitude}\n        - Latitude: -90 to 90 (negative =\
+        \ South)\n        - Longitude: -180 to 180 (negative = West)\n        \n \
+        \       **Immutability:**\n        Receipt events are audit logs and CANNOT\
+        \ be updated or deleted after creation.\n        \n        **Pharmacist-only\
+        \ access.**\n        "
       summary: Create new receipt event
       tags:
       - Receipts
@@ -1039,6 +1389,28 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ReceiptEventRequest'
+            examples:
+              ReceiptAtNairobiPharmacy:
+                value:
+                  location_coord:
+                    lat: -1.2921
+                    lng: 36.8219
+                  lot: 494466b3-0f94-4f5c-8a12-38e403fcf3e7
+                summary: Receipt at Nairobi Pharmacy
+              ReceiptAtMombasaPharmacy:
+                value:
+                  location_coord:
+                    lat: -4.0435
+                    lng: 39.6682
+                  lot: a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d
+                summary: Receipt at Mombasa Pharmacy
+              ReceiptAtKisumuPharmacy:
+                value:
+                  location_coord:
+                    lat: -0.0917
+                    lng: 34.768
+                  lot: f9e8d7c6-b5a4-4321-9876-fedcba098765
+                summary: Receipt at Kisumu Pharmacy
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/ReceiptEventRequest'
@@ -1060,7 +1432,7 @@ paths:
     get:
       operationId: receipts_retrieve
       description: Get detailed information about a specific receipt event including
-        location data.
+        location coordinates and lot details.
       summary: Retrieve receipt event details
       parameters:
       - in: path
@@ -1085,7 +1457,8 @@ paths:
   /api/users/:
     get:
       operationId: users_list
-      description: Retrieve a paginated list of all registered users in the system.
+      description: Retrieve a paginated list of all registered users with optional
+        role filtering.
       summary: List all users
       parameters:
       - name: ordering
@@ -1100,6 +1473,21 @@ paths:
         description: A page number within the paginated result set.
         schema:
           type: integer
+      - in: query
+        name: role
+        schema:
+          type: string
+        description: Filter users by role
+        examples:
+          PharmacistsOnly:
+            value: PHARMACIST
+            summary: Pharmacists Only
+          PatientsOnly:
+            value: PATIENT
+            summary: Patients Only
+          RegulatorsOnly:
+            value: REGULATOR
+            summary: Regulators Only
       - name: search
         required: false
         in: query
@@ -1120,7 +1508,12 @@ paths:
           description: ''
     post:
       operationId: users_create
-      description: Register a new user account. This endpoint allows public registration.
+      description: "\n        Register a new user account with role-based access.\n\
+        \        \n        **Available Roles:**\n        - PATIENT: Can view products,\
+        \ create quality flags\n        - PHARMACIST: Can receive lots, create flags,\
+        \ view receipt events\n        - REGULATOR: Full read access (future use)\n\
+        \        \n        **Public endpoint** - No authentication required for registration.\n\
+        \        "
       summary: Create new user
       tags:
       - Users
@@ -1129,6 +1522,21 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UserRequest'
+            examples:
+              PharmacistRegistration:
+                value:
+                  username: pharmacist1
+                  email: pharmacist@example.com
+                  password: SecurePass123!
+                  role: PHARMACIST
+                summary: Pharmacist Registration
+              PatientRegistration:
+                value:
+                  username: patient1
+                  email: patient@example.com
+                  password: SecurePass123!
+                  role: PATIENT
+                summary: Patient Registration
           application/x-www-form-urlencoded:
             schema:
               $ref: '#/components/schemas/UserRequest'
@@ -1150,7 +1558,8 @@ paths:
   /api/users/{id}/:
     get:
       operationId: users_retrieve
-      description: Get detailed information about a specific user by their ID.
+      description: Get detailed information about a specific user including role and
+        contact information.
       summary: Retrieve user details
       parameters:
       - in: path
@@ -1266,8 +1675,10 @@ paths:
   /api/users/me/:
     get:
       operationId: users_me_retrieve
-      description: Retrieve the profile information of the currently authenticated
-        user.
+      description: "\n        Retrieve the profile information of the currently authenticated\
+        \ user.\n        \n        Useful for:\n        - Displaying user info in\
+        \ the app\n        - Checking current user's role\n        - Getting user\
+        \ ID for other operations\n        "
       summary: Get current user profile
       tags:
       - Users
@@ -1300,12 +1711,23 @@ components:
           description: Type of issue reported (e.g., Counterfeit Suspected, Quality
             Issue, Packaging Damage)
           maxLength: 100
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/SeverityEnum'
+          description: |-
+            Severity level of the reported issue (impacts trust score calculation)
+
+            * `CRITICAL` - Critical - Immediate safety concern
+            * `HIGH` - High - Significant quality issue
+            * `MEDIUM` - Medium - Notable concern
+            * `LOW` - Low - Minor issue
         description:
           type: string
           description: Detailed description of the issue
         user:
           type: string
           format: uuid
+          readOnly: true
           description: User who reported the issue
         user_username:
           type: string
@@ -1348,14 +1770,20 @@ components:
           description: Type of issue reported (e.g., Counterfeit Suspected, Quality
             Issue, Packaging Damage)
           maxLength: 100
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/SeverityEnum'
+          description: |-
+            Severity level of the reported issue (impacts trust score calculation)
+
+            * `CRITICAL` - Critical - Immediate safety concern
+            * `HIGH` - High - Significant quality issue
+            * `MEDIUM` - Medium - Notable concern
+            * `LOW` - Low - Minor issue
         description:
           type: string
           minLength: 1
           description: Detailed description of the issue
-        user:
-          type: string
-          format: uuid
-          description: User who reported the issue
         lot:
           type: string
           format: uuid
@@ -1367,7 +1795,6 @@ components:
       - issue_type
       - lot
       - reporter_type
-      - user
     Distributor:
       type: object
       description: |-
@@ -1427,7 +1854,23 @@ components:
       - name
     LotManifest:
       type: object
-      description: Serializer for the LotManifest model.
+      description: |-
+        Serializer for LotManifest with AUTO-GENERATED Ed25519 signatures.
+
+        UPDATABLE FIELDS:
+        - batch_number: Lot/batch identifier
+        - expiry_date: Medicine expiration date
+        - medicine: Medicine ID
+        - distributor: Distributor ID
+
+        IMMUTABLE FIELDS (Auto-Managed):
+        - digital_signature: ALWAYS auto-regenerated on create/update
+        - trust_score: IMMUTABLE - cannot be changed after creation
+        - is_authentic: Computed field (verification result)
+
+        SECURITY:
+        - Ed25519 signatures auto-generated using derived keys
+        - No private keys stored in database
       properties:
         id:
           type: string
@@ -1441,11 +1884,13 @@ components:
           format: date
         digital_signature:
           type: string
-          description: Digital signature from the distributor
+          readOnly: true
+          description: Auto-generated Ed25519 digital signature (128 hex chars)
         trust_score:
           type: string
           format: decimal
           pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
+          readOnly: true
           description: Trust score based on verification (0.00 to 100.00)
         medicine:
           type: string
@@ -1461,6 +1906,10 @@ components:
         distributor_name:
           type: string
           readOnly: true
+        is_authentic:
+          type: string
+          readOnly: true
+          description: Boolean result of signature verification
       required:
       - batch_number
       - digital_signature
@@ -1468,11 +1917,29 @@ components:
       - distributor_name
       - expiry_date
       - id
+      - is_authentic
       - medicine
       - medicine_name
+      - trust_score
     LotManifestRequest:
       type: object
-      description: Serializer for the LotManifest model.
+      description: |-
+        Serializer for LotManifest with AUTO-GENERATED Ed25519 signatures.
+
+        UPDATABLE FIELDS:
+        - batch_number: Lot/batch identifier
+        - expiry_date: Medicine expiration date
+        - medicine: Medicine ID
+        - distributor: Distributor ID
+
+        IMMUTABLE FIELDS (Auto-Managed):
+        - digital_signature: ALWAYS auto-regenerated on create/update
+        - trust_score: IMMUTABLE - cannot be changed after creation
+        - is_authentic: Computed field (verification result)
+
+        SECURITY:
+        - Ed25519 signatures auto-generated using derived keys
+        - No private keys stored in database
       properties:
         batch_number:
           type: string
@@ -1481,15 +1948,6 @@ components:
         expiry_date:
           type: string
           format: date
-        digital_signature:
-          type: string
-          minLength: 1
-          description: Digital signature from the distributor
-        trust_score:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          description: Trust score based on verification (0.00 to 100.00)
         medicine:
           type: string
           format: uuid
@@ -1500,7 +1958,6 @@ components:
           description: Distributor who provided this lot
       required:
       - batch_number
-      - digital_signature
       - distributor
       - expiry_date
       - medicine
@@ -1721,14 +2178,20 @@ components:
           description: Type of issue reported (e.g., Counterfeit Suspected, Quality
             Issue, Packaging Damage)
           maxLength: 100
+        severity:
+          allOf:
+          - $ref: '#/components/schemas/SeverityEnum'
+          description: |-
+            Severity level of the reported issue (impacts trust score calculation)
+
+            * `CRITICAL` - Critical - Immediate safety concern
+            * `HIGH` - High - Significant quality issue
+            * `MEDIUM` - Medium - Notable concern
+            * `LOW` - Low - Minor issue
         description:
           type: string
           minLength: 1
           description: Detailed description of the issue
-        user:
-          type: string
-          format: uuid
-          description: User who reported the issue
         lot:
           type: string
           format: uuid
@@ -1756,7 +2219,23 @@ components:
           description: Whether this distributor is verified by regulatory authorities
     PatchedLotManifestRequest:
       type: object
-      description: Serializer for the LotManifest model.
+      description: |-
+        Serializer for LotManifest with AUTO-GENERATED Ed25519 signatures.
+
+        UPDATABLE FIELDS:
+        - batch_number: Lot/batch identifier
+        - expiry_date: Medicine expiration date
+        - medicine: Medicine ID
+        - distributor: Distributor ID
+
+        IMMUTABLE FIELDS (Auto-Managed):
+        - digital_signature: ALWAYS auto-regenerated on create/update
+        - trust_score: IMMUTABLE - cannot be changed after creation
+        - is_authentic: Computed field (verification result)
+
+        SECURITY:
+        - Ed25519 signatures auto-generated using derived keys
+        - No private keys stored in database
       properties:
         batch_number:
           type: string
@@ -1765,15 +2244,6 @@ components:
         expiry_date:
           type: string
           format: date
-        digital_signature:
-          type: string
-          minLength: 1
-          description: Digital signature from the distributor
-        trust_score:
-          type: string
-          format: decimal
-          pattern: ^-?\d{0,3}(?:\.\d{0,2})?$
-          description: Trust score based on verification (0.00 to 100.00)
         medicine:
           type: string
           format: uuid
@@ -1873,6 +2343,7 @@ components:
         user:
           type: string
           format: uuid
+          readOnly: true
           description: User who scanned/received the lot
         user_username:
           type: string
@@ -1903,10 +2374,6 @@ components:
         location_coord:
           description: 'Geographic coordinates in JSON format (e.g., {''lat'': 40.7128,
             ''lng'': -74.0060})'
-        user:
-          type: string
-          format: uuid
-          description: User who scanned/received the lot
         lot:
           type: string
           format: uuid
@@ -1914,7 +2381,6 @@ components:
       required:
       - location_coord
       - lot
-      - user
     RoleEnum:
       enum:
       - Admin
@@ -1925,6 +2391,18 @@ components:
         * `Admin` - Admin
         * `Pharmacist` - Pharmacist
         * `Patient` - Patient
+    SeverityEnum:
+      enum:
+      - CRITICAL
+      - HIGH
+      - MEDIUM
+      - LOW
+      type: string
+      description: |-
+        * `CRITICAL` - Critical - Immediate safety concern
+        * `HIGH` - High - Significant quality issue
+        * `MEDIUM` - Medium - Notable concern
+        * `LOW` - Low - Minor issue
     TokenObtainPair:
       type: object
       properties:

@@ -7,7 +7,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 
 from .models import User
@@ -17,18 +17,62 @@ from .serializers import UserSerializer
 @extend_schema_view(
     list=extend_schema(
         summary="List all users",
-        description="Retrieve a paginated list of all registered users in the system.",
+        description="Retrieve a paginated list of all registered users with optional role filtering.",
         tags=['Users'],
+        parameters=[
+            OpenApiParameter(
+                name='role',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Filter users by role',
+                examples=[
+                    OpenApiExample('Pharmacists Only', value='PHARMACIST'),
+                    OpenApiExample('Patients Only', value='PATIENT'),
+                    OpenApiExample('Regulators Only', value='REGULATOR'),
+                ]
+            ),
+        ],
     ),
     retrieve=extend_schema(
         summary="Retrieve user details",
-        description="Get detailed information about a specific user by their ID.",
+        description="Get detailed information about a specific user including role and contact information.",
         tags=['Users'],
     ),
     create=extend_schema(
         summary="Create new user",
-        description="Register a new user account. This endpoint allows public registration.",
+        description="""
+        Register a new user account with role-based access.
+        
+        **Available Roles:**
+        - PATIENT: Can view products, create quality flags
+        - PHARMACIST: Can receive lots, create flags, view receipt events
+        - REGULATOR: Full read access (future use)
+        
+        **Public endpoint** - No authentication required for registration.
+        """,
         tags=['Users'],
+        examples=[
+            OpenApiExample(
+                'Pharmacist Registration',
+                value={
+                    "username": "pharmacist1",
+                    "email": "pharmacist@example.com",
+                    "password": "SecurePass123!",
+                    "role": "PHARMACIST",
+                },
+                request_only=True,
+            ),
+            OpenApiExample(
+                'Patient Registration',
+                value={
+                    "username": "patient1",
+                    "email": "patient@example.com",
+                    "password": "SecurePass123!",
+                    "role": "PATIENT",
+                },
+                request_only=True,
+            ),
+        ],
     ),
     update=extend_schema(
         summary="Update user",
@@ -80,7 +124,14 @@ class UserViewSet(viewsets.ModelViewSet):
     
     @extend_schema(
         summary="Get current user profile",
-        description="Retrieve the profile information of the currently authenticated user.",
+        description="""
+        Retrieve the profile information of the currently authenticated user.
+        
+        Useful for:
+        - Displaying user info in the app
+        - Checking current user's role
+        - Getting user ID for other operations
+        """,
         tags=['Users'],
         responses={200: UserSerializer},
     )
