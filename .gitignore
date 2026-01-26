@@ -1,5 +1,8 @@
 # Byte-compiled / optimized / DLL files
 __pycache__/
+
+# Design templates
+stitch_rxverify_lite_designs/
 *.py[codz]
 *$py.class
 

@@ -1,34 +1,23 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import LandingPage from './components/LandingPage'
+import JoinNetworkPage from './components/JoinNetworkPage'
+import PatientRegistrationPage from './components/PatientRegistrationPage'
+import PharmacistOnboardingPage from './components/PharmacistOnboardingPage'
+import DistributorRegistrationPage from './components/DistributorRegistrationPage'
+import CryptographicVaultPage from './components/CryptographicVaultPage'
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
+    <Router>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/join" element={<JoinNetworkPage />} />
+        <Route path="/register/patient" element={<PatientRegistrationPage />} />
+        <Route path="/register/pharmacist" element={<PharmacistOnboardingPage />} />
+        <Route path="/register/distributor" element={<DistributorRegistrationPage />} />
+        <Route path="/register/distributor/vault" element={<CryptographicVaultPage />} />
+      </Routes>
+    </Router>
   )
 }
 
