@@ -1,8 +1,9 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 
 const PharmacistOnboardingPage: React.FC = () => {
+  const navigate = useNavigate();
   return (
     <div className="bg-[#f6f6f8] dark:bg-[#101622] text-[#111318] dark:text-white font-display min-h-screen flex flex-col">
       {/* Top Navigation */}
@@ -75,7 +76,7 @@ const PharmacistOnboardingPage: React.FC = () => {
               </div>
 
               {/* Form */}
-              <form className="flex flex-col gap-8" onSubmit={(e) => e.preventDefault()}>
+              <form className="flex flex-col gap-8" onSubmit={(e) => { e.preventDefault(); navigate('/pharmacist/dashboard'); }}>
                 {/* Pharmacy Information Section */}
                 <div className="flex flex-col gap-5">
                   <div className="flex items-center gap-2 mb-1">

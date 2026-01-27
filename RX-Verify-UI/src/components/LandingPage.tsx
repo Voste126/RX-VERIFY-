@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 import AuthModal from './AuthModal';
 import HeroSection from './HeroSection';
@@ -8,6 +9,7 @@ import TrustScoreSection from './TrustScoreSection';
 import Footer from './Footer';
 
 const LandingPage: React.FC = () => {
+  const navigate = useNavigate();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const handleLoginClick = () => {
@@ -16,6 +18,11 @@ const LandingPage: React.FC = () => {
 
   const handleCloseModal = () => {
     setIsAuthModalOpen(false);
+  };
+
+  const handleAuthenticate = () => {
+    // Redirect to batch management dashboard after successful authentication
+    navigate('/distributor/batch-management');
   };
 
   return (
@@ -28,7 +35,7 @@ const LandingPage: React.FC = () => {
         <TrustScoreSection />
       </main>
       <Footer />
-      <AuthModal isOpen={isAuthModalOpen} onClose={handleCloseModal} />
+      <AuthModal isOpen={isAuthModalOpen} onClose={handleCloseModal} onAuthenticate={handleAuthenticate} />
     </div>
   );
 };

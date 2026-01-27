@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 
 const CryptographicVaultPage: React.FC = () => {
+  const navigate = useNavigate();
   const [publicKey] = useState('0x7a419280c4d564f7a8b9cd1f2f54edd6d7849f9');
   const [privateKey] = useState('0x4f8e2a1b9c3d5e7f6a8b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e');
   const [showPrivateKey, setShowPrivateKey] = useState(false);
@@ -146,7 +147,10 @@ const CryptographicVaultPage: React.FC = () => {
               <Icon name="arrow_back" />
               Back
             </Link>
-            <button className="flex-[2] px-6 py-3 rounded-lg bg-success text-white font-bold hover:bg-green-600 transition-all shadow-lg shadow-green-500/20 flex items-center justify-center gap-2">
+            <button 
+              onClick={() => navigate('/distributor/batch-management')}
+              className="flex-[2] px-6 py-3 rounded-lg bg-success text-white font-bold hover:bg-green-600 transition-all shadow-lg shadow-green-500/20 flex items-center justify-center gap-2"
+            >
               Complete Setup
               <Icon name="check_circle" />
             </button>
