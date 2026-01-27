@@ -1,11 +1,24 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
+import { authService } from '../services/auth';
 
 const PatientRegistrationPage: React.FC = () => {
+  const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Form state
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // UI state
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const calculatePasswordStrength = (pwd: string): { strength: number; label: string; color: string } => {
     if (pwd.length === 0) return { strength: 0, label: '', color: '' };
@@ -16,6 +29,50 @@ const PatientRegistrationPage: React.FC = () => {
   };
 
   const passwordStrength = calculatePasswordStrength(password);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    
+    // Validation
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      // Register patient
+      await authService.registerPatient({
+        username,
+        email,
+        password,
+        password2: confirmPassword,
+        first_name: firstName,
+        last_name: lastName,
+      });
+      
+      // Auto-login after successful registration
+      await authService.login({ username, password });
+      
+      // Navigate to landing page (no patient dashboard exists yet)
+      // TODO: Create patient dashboard and update this route
+      navigate('/');
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      const errorData = err.response?.data;
+      if (typeof errorData === 'object') {
+        // Extract first error message from validation errors
+        const firstError = Object.values(errorData)[0];
+        setError(Array.isArray(firstError) ? firstError[0] : String(firstError));
+      } else {
+        setError(errorData || 'Registration failed. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="bg-background-light dark:bg-background-dark font-display text-text-main antialiased min-h-screen flex flex-col">
@@ -56,7 +113,14 @@ const PatientRegistrationPage: React.FC = () => {
           </div>
 
           {/* Registration Card */}
-          <div className="bg-white dark:bg-[#1a1a2e] rounded-xl shadow-lg border border-slate-200 dark:border-gray-800 p-6 md:p-8 flex flex-col gap-6">
+          <form onSubmit={handleSubmit} className="bg-white dark:bg-[#1a1a2e] rounded-xl shadow-lg border border-slate-200 dark:border-gray-800 p-6 md:p-8 flex flex-col gap-6">
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                <p className="text-red-800 dark:text-red-300 text-sm font-medium">{error}</p>
+              </div>
+            )}
+
             {/* Username Field */}
             <div className="flex flex-col gap-1.5">
               <label className="text-slate-900 dark:text-slate-200 text-sm font-medium" htmlFor="username">
@@ -67,6 +131,9 @@ const PatientRegistrationPage: React.FC = () => {
                 id="username"
                 placeholder="Enter your username"
                 type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
               />
             </div>
 
@@ -80,7 +147,43 @@ const PatientRegistrationPage: React.FC = () => {
                 id="email"
                 placeholder="name@example.com"
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
               />
+            </div>
+
+            {/* First and Last Name Row */}
+            <div className="grid grid-cols-2 gap-4">
+              {/* First Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-slate-900 dark:text-slate-200 text-sm font-medium" htmlFor="firstName">
+                  First Name
+                </label>
+                <input
+                  className="flex w-full rounded-lg text-slate-900 dark:text-white dark:bg-slate-900 border border-slate-300 dark:border-gray-700 focus:border-primary dark:focus:border-primary focus:ring-0 focus:shadow-[0_0_0_4px_rgba(0,85,255,0.1)] h-12 placeholder:text-slate-500 dark:placeholder:text-slate-600 px-4 text-base transition-all duration-200"
+                  id="firstName"
+                  placeholder="John"
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                />
+              </div>
+
+              {/* Last Name */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-slate-900 dark:text-slate-200 text-sm font-medium" htmlFor="lastName">
+                  Last Name
+                </label>
+                <input
+                  className="flex w-full rounded-lg text-slate-900 dark:text-white dark:bg-slate-900 border border-slate-300 dark:border-gray-700 focus:border-primary dark:focus:border-primary focus:ring-0 focus:shadow-[0_0_0_4px_rgba(0,85,255,0.1)] h-12 placeholder:text-slate-500 dark:placeholder:text-slate-600 px-4 text-base transition-all duration-200"
+                  id="lastName"
+                  placeholder="Doe"
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                />
+              </div>
             </div>
 
             {/* Password Field */}
@@ -96,6 +199,7 @@ const PatientRegistrationPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required
                 />
                 <button
                   className="absolute right-4 text-slate-500 hover:text-primary transition-colors"
@@ -139,6 +243,9 @@ const PatientRegistrationPage: React.FC = () => {
                   id="confirm-password"
                   placeholder="Confirm your password"
                   type={showConfirmPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
                 />
                 <button
                   className="absolute right-4 text-slate-500 hover:text-primary transition-colors"
@@ -158,6 +265,7 @@ const PatientRegistrationPage: React.FC = () => {
                   id="terms"
                   name="terms"
                   type="checkbox"
+                  required
                 />
               </div>
               <div className="text-sm leading-tight">
@@ -176,9 +284,22 @@ const PatientRegistrationPage: React.FC = () => {
             </div>
 
             {/* Submit Button */}
-            <button className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 bg-primary hover:bg-blue-600 text-white text-base font-bold shadow-md transition-all duration-200 transform active:scale-[0.99] mt-2 group">
-              <Icon name="lock" className="mr-2 text-[20px] group-hover:animate-pulse" />
-              <span>Create Secure Account</span>
+            <button 
+              type="submit"
+              disabled={isLoading}
+              className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 bg-primary hover:bg-blue-600 text-white text-base font-bold shadow-md transition-all duration-200 transform active:scale-[0.99] mt-2 group disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? (
+                <>
+                  <Icon name="hourglass_empty" className="mr-2 text-[20px] animate-spin" />
+                  <span>Creating Account...</span>
+                </>
+              ) : (
+                <>
+                  <Icon name="lock" className="mr-2 text-[20px] group-hover:animate-pulse" />
+                  <span>Create Secure Account</span>
+                </>
+              )}
             </button>
 
             {/* Footer Links */}
@@ -194,7 +315,7 @@ const PatientRegistrationPage: React.FC = () => {
                 <span className="text-xs text-slate-500 dark:text-slate-400 font-medium">HIPAA Compliant Security</span>
               </div>
             </div>
-          </div>
+          </form>
         </div>
       </main>
 

@@ -145,3 +145,97 @@ class UserViewSet(viewsets.ModelViewSet):
         """
         serializer = self.get_serializer(request.user)
         return Response(serializer.data)
+
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import (
+    PatientRegistrationSerializer,
+    PharmacistRegistrationSerializer,
+    DistributorRegistrationSerializer
+)
+
+
+@extend_schema(
+    summary="Patient Registration",
+    description="Register a new patient account. Role is automatically set to Patient.",
+    tags=['Authentication'],
+    request=PatientRegistrationSerializer,
+    responses={201: UserSerializer},
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def patient_register(request):
+    """Public endpoint for patient registration."""
+    serializer = PatientRegistrationSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        return Response({
+            'message': 'Patient account created successfully',
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    summary="Pharmacist Registration",
+    description="Register a new pharmacist account. Role is automatically set to Pharmacist. License verification pending.",
+    tags=['Authentication'],
+    request=PharmacistRegistrationSerializer,
+    responses={201: UserSerializer},
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def pharmacist_register(request):
+    """Public endpoint for pharmacist registration."""
+    serializer = PharmacistRegistrationSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        return Response({
+            'message': 'Pharmacist account created successfully (pending license verification)',
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    summary="Distributor Registration",
+    description="Register a new distributor account. Role is automatically set to Distributor. Company verification pending.",
+    tags=['Authentication'],
+    request=DistributorRegistrationSerializer,
+    responses={201: UserSerializer},
+)
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def distributor_register(request):
+    """Public endpoint for distributor registration."""
+    serializer = DistributorRegistrationSerializer(data=request.data)
+    if serializer.is_valid():
+        user = serializer.save()
+        return Response({
+            'message': 'Distributor account created successfully (pending company verification)',
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(
+    summary="Logout",
+    description="Logout the current user by blacklisting their refresh token.",
+    tags=['Authentication'],
+    request={'refresh_token': 'string'},
+    responses={200: {'message': 'string'}},
+)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def logout(request):
+    """Logout endpoint - blacklists refresh token."""
+    try:
+        refresh_token = request.data.get('refresh_token')
+        if refresh_token:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
+    except Exception as e:
+        return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)

@@ -94,26 +94,37 @@ class DistributorViewSet(viewsets.ModelViewSet):
     Provides CRUD operations for Distributor model with the following features:
     - List all distributors (paginated)
     - Retrieve individual distributor details
-    - Create new distributors (admin only)
+    - Create new distributors (authenticated users can create)
     - Update distributor information (admin only)
     - Delete distributors (admin only)
     - Filter by verification status
     - Search by name
     
     Permissions:
-    - Read: All authenticated users
-    - Write (Create, Update, Delete): Admin users only
+    - Read & Create: All authenticated users
+    - Write (Update, Delete): Admin users only
     """
     
     queryset = Distributor.objects.all()
     serializer_class = DistributorSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    # Allow authenticated users to create, but only admins can update/delete
+    permission_classes = [IsAuthenticated]
     
     # Enable search by distributor name
     search_fields = ['name']
     # Enable ordering by name and verification status
     ordering_fields = ['name', 'is_verified_regulator']
     ordering = ['name']  # Default ordering
+    
+    def get_permissions(self):
+        """
+        Custom permissions: authenticated users can create, only admins can update/delete.
+        """
+        if self.action in ['update', 'partial_update', 'destroy']:
+            # Only admins can update or delete
+            return [IsAdminOrReadOnly()]
+        # All authenticated users can list, retrieve, and create
+        return [IsAuthenticated()]
     
     def get_queryset(self):
         """

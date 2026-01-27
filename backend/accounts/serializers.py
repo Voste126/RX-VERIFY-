@@ -87,3 +87,123 @@ class UserSerializer(serializers.ModelSerializer):
         instance.save()
         
         return instance
+
+
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Include user role and info in JWT token payload."""
+    
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        
+        # Add custom claims
+        token['role'] = user.role
+        token['username'] = user.username
+        token['email'] = user.email
+        
+        return token
+    
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        
+        # Add user info to response
+        data['user'] = {
+            'id': str(self.user.id),
+            'username': self.user.username,
+            'email': self.user.email,
+            'role': self.user.role,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+        }
+        
+        return data
+
+
+class PatientRegistrationSerializer(UserSerializer):
+    """Serializer for patient registration - locks role to Patient."""
+    
+    class Meta(UserSerializer.Meta):
+        fields = [
+            'id', 'username', 'email', 'password', 'password2',
+            'first_name', 'last_name', 'date_joined', 'is_active'
+        ]
+    
+    def validate_role(self, value):
+        """Ensure role is Patient."""
+        if value and value != 'Patient':
+            raise serializers.ValidationError("Patient registration must use Patient role.")
+        return value
+    
+    def create(self, validated_data):
+        """Force role to Patient."""
+        validated_data['role'] = 'Patient'
+        return super().create(validated_data)
+
+
+class PharmacistRegistrationSerializer(UserSerializer):
+    """Serializer for pharmacist registration with license validation."""
+    
+    license_number = serializers.CharField(
+        max_length=50,
+        required=False,
+        help_text="Pharmacist license number"
+    )
+    pharmacy_name = serializers.CharField(
+        max_length=200,
+        required=False,
+        help_text="Legal pharmacy name"
+    )
+    pharmacy_phone = serializers.CharField(
+        max_length=20,
+        required=False,
+        help_text="Pharmacy phone number"
+    )
+    
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ['license_number', 'pharmacy_name', 'pharmacy_phone']
+    
+    def validate_role(self, value):
+        """Ensure role is Pharmacist."""
+        if value and value != 'Pharmacist':
+            raise serializers.ValidationError("Pharmacist registration must use Pharmacist role.")
+        return value
+    
+    def create(self, validated_data):
+        """Force role to Pharmacist and store license info."""
+        validated_data['role'] = 'Pharmacist'
+        # Fields are now stored in the User model
+        return super().create(validated_data)
+
+
+class DistributorRegistrationSerializer(UserSerializer):
+    """Serializer for distributor registration with company validation."""
+    
+    company_name = serializers.CharField(
+        max_length=200,
+        required=False,
+        help_text="Distributor company name"
+    )
+    license_number = serializers.CharField(
+        max_length=50,
+        required=False,
+        help_text="Distribution license number"
+    )
+    
+    class Meta(UserSerializer.Meta):
+        fields = UserSerializer.Meta.fields + ['company_name', 'license_number']
+    
+    def validate_role(self, value):
+        """Ensure role is Distributor."""
+        if value and value != 'Distributor':
+            raise serializers.ValidationError("Distributor registration must use Distributor role.")
+        return value
+    
+    def create(self, validated_data):
+        """Force role to Distributor and store company info."""
+        validated_data['role'] = 'Distributor'
+        # Fields are now stored in the User model
+        return super().create(validated_data)
+
