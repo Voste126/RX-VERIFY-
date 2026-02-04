@@ -14,7 +14,7 @@ export const api = axios.create({
 api.interceptors.request.use(
     (config) => {
         // Skip adding auth header for public endpoints (registration, login)
-        const publicEndpoints = ['/auth/register/', '/auth/token/'];
+        const publicEndpoints = ['/auth/register/', '/auth/token/', '/verify_qr/'];
         const isPublicEndpoint = publicEndpoints.some(endpoint =>
             config.url?.includes(endpoint)
         );

@@ -1,19 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Icon from './Icon';
+import { distributorService, type Medicine } from '../services/distributor';
 
 const NewLotManifest: React.FC = () => {
   const navigate = useNavigate();
-  const [medicine, setMedicine] = useState('Amoxicillin 500mg (Capsule)');
-  const [batchId, setBatchId] = useState('RX-2024-L889');
-  const [expiryDate, setExpiryDate] = useState('2025-12-31');
-  const [quantity, setQuantity] = useState(10000);
-  const [facility, setFacility] = useState('Facility A - Zurich');
+  
+  // Available medicines from API
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [loadingMedicines, setLoadingMedicines] = useState(true);
+  
+  // Form state
+  const [selectedMedicineId, setSelectedMedicineId] = useState('');
+  const [batchId, setBatchId] = useState('');
+  const [expiryDate, setExpiryDate] = useState('');
+  
+  // UI state
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchMedicines();
+  }, []);
+
+  const fetchMedicines = async () => {
+    try {
+      const data = await distributorService.getMedicines();
+      setMedicines(data);
+      if (data.length > 0) {
+        setSelectedMedicineId(data[0].id);
+      }
+    } catch (err) {
+      console.error('Error fetching medicines:', err);
+      setError('Failed to load medicines. Please try again.');
+    } finally {
+      setLoadingMedicines(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle manifest generation
-    console.log('Generating manifest...', { medicine, batchId, expiryDate, quantity, facility });
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const manifest = await distributorService.createLotManifest({
+        batch_number: batchId,
+        expiry_date: expiryDate,
+        medicine: selectedMedicineId,
+      });
+      
+      // Navigate to QR code page after successful creation
+      navigate(`/distributor/qr-codes/${manifest.id}`);
+    } catch (err: any) {
+      console.error('Manifest creation error:', err);
+      const errorData = err.response?.data;
+      if (typeof errorData === 'object') {
+        const firstError = Object.values(errorData)[0];
+        setError(Array.isArray(firstError) ? firstError[0] : String(firstError));
+      } else {
+        setError(errorData || 'Failed to create manifest. Please try again.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -90,6 +140,14 @@ const NewLotManifest: React.FC = () => {
 
             {/* Form Card */}
             <form onSubmit={handleSubmit} className="bg-white border border-[#e5e7eb] rounded-xl p-6 md:p-8 shadow-sm flex flex-col gap-8">
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center gap-2">
+                  <Icon name="error" className="text-red-500" />
+                  <p className="text-red-700 text-sm font-medium">{error}</p>
+                </div>
+              )}
+
               {/* Section: Product Identity */}
               <div className="flex flex-col gap-5">
                 <h3 className="text-lg font-bold flex items-center gap-2">
@@ -99,20 +157,35 @@ const NewLotManifest: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <label className="flex flex-col gap-2 col-span-1 md:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Select Medicine</span>
-                    <div className="relative">
-                      <select
-                        value={medicine}
-                        onChange={(e) => setMedicine(e.target.value)}
-                        className="w-full appearance-none rounded-lg border border-[#e5e7eb] bg-transparent p-4 pr-10 text-base focus:border-[#5500ff] focus:ring-1 focus:ring-[#5500ff] outline-none transition-all font-medium"
-                      >
-                        <option>Amoxicillin 500mg (Capsule)</option>
-                        <option>Atorvastatin 20mg (Tablet)</option>
-                        <option>Lisinopril 10mg (Tablet)</option>
-                      </select>
-                      <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
-                        <Icon name="expand_more" />
+                    {loadingMedicines ? (
+                      <div className="w-full rounded-lg border border-[#e5e7eb] bg-gray-50 p-4 text-base text-gray-500 flex items-center gap-2">
+                        <Icon name="hourglass_empty" className="animate-spin" />
+                        Loading medicines...
                       </div>
-                    </div>
+                    ) : medicines.length === 0 ? (
+                      <div className="w-full rounded-lg border border-[#e5e7eb] bg-yellow-50 p-4 text-base text-yellow-800 flex items-center gap-2">
+                        <Icon name="warning" />
+                        No medicines registered. Please register a medicine first.
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <select
+                          value={selectedMedicineId}
+                          onChange={(e) => setSelectedMedicineId(e.target.value)}
+                          className="w-full appearance-none rounded-lg border border-[#e5e7eb] bg-transparent p-4 pr-10 text-base focus:border-[#5500ff] focus:ring-1 focus:ring-[#5500ff] outline-none transition-all font-medium"
+                          required
+                        >
+                          {medicines.map((med) => (
+                            <option key={med.id} value={med.id}>
+                              {med.name} ({med.active_ingredient} {med.strength})
+                            </option>
+                          ))}
+                        </select>
+                        <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
+                          <Icon name="expand_more" />
+                        </div>
+                      </div>
+                    )}
                   </label>
                 </div>
               </div>
@@ -156,51 +229,6 @@ const NewLotManifest: React.FC = () => {
                       </div>
                     </div>
                   </label>
-
-                  <label className="flex flex-col gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Quantity (Units)</span>
-                    <div className="flex items-center rounded-lg border border-[#e5e7eb] overflow-hidden focus-within:ring-1 focus-within:ring-[#5500ff] focus-within:border-[#5500ff] transition-all">
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(Math.max(0, quantity - 100))}
-                        className="px-4 py-4 bg-gray-50 hover:bg-gray-100 border-r border-[#e5e7eb] transition-colors"
-                      >
-                        <Icon name="remove" className="text-sm" />
-                      </button>
-                      <input
-                        type="number"
-                        value={quantity}
-                        onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
-                        className="flex-1 bg-transparent text-center p-4 outline-none border-none focus:ring-0 font-mono"
-                        placeholder="0"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setQuantity(quantity + 100)}
-                        className="px-4 py-4 bg-gray-50 hover:bg-gray-100 border-l border-[#e5e7eb] transition-colors"
-                      >
-                        <Icon name="add" className="text-sm" />
-                      </button>
-                    </div>
-                  </label>
-
-                  <label className="flex flex-col gap-2">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-500">Production Facility</span>
-                    <div className="relative">
-                      <select
-                        value={facility}
-                        onChange={(e) => setFacility(e.target.value)}
-                        className="w-full appearance-none rounded-lg border border-[#e5e7eb] bg-transparent p-4 pr-10 text-base focus:border-[#5500ff] focus:ring-1 focus:ring-[#5500ff] outline-none transition-all"
-                      >
-                        <option>Facility A - Zurich</option>
-                        <option>Facility B - Berlin</option>
-                        <option>Facility C - New York</option>
-                      </select>
-                      <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-gray-500">
-                        <Icon name="expand_more" />
-                      </div>
-                    </div>
-                  </label>
                 </div>
               </div>
 
@@ -222,10 +250,20 @@ const NewLotManifest: React.FC = () => {
                   </button>
                   <button
                     type="submit"
-                    className="px-8 py-3 rounded-lg bg-[#5500ff] text-white text-sm font-bold shadow-lg shadow-[#5500ff]/30 hover:shadow-[#5500ff]/50 hover:bg-[#5500ff]/90 transition-all flex items-center gap-2"
+                    disabled={isLoading || loadingMedicines || medicines.length === 0}
+                    className="px-8 py-3 rounded-lg bg-[#5500ff] text-white text-sm font-bold shadow-lg shadow-[#5500ff]/30 hover:shadow-[#5500ff]/50 hover:bg-[#5500ff]/90 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Icon name="fingerprint" className="text-[18px]" />
-                    Generate Manifest
+                    {isLoading ? (
+                      <>
+                        <Icon name="hourglass_empty" className="text-[18px] animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      <>
+                        <Icon name="fingerprint" className="text-[18px]" />
+                        Generate Manifest
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
