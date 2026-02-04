@@ -11,6 +11,8 @@ import MedicineRegistrationPage from './components/MedicineRegistrationPage'
 import NewLotManifest from './components/NewLotManifest'
 import QRCodeDisplayPage from './components/QRCodeDisplayPage'
 import PharmacistInventoryDashboard from './components/PharmacistInventoryDashboard'
+import DistributorEntityRegistration from './components/DistributorEntityRegistration'
+import DistributorDashboardTabs from './components/DistributorDashboardTabs'
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
         <Route path="/register/distributor/vault" element={<CryptographicVaultPage />} />
         
         {/* Distributor Routes */}
+        <Route path="/distributor/entity/register" element={<DistributorEntityRegistration />} />
+        <Route path="/distributor/dashboard-tabs" element={<DistributorDashboardTabs />} />
         <Route path="/distributor/dashboard" element={<DistributorDashboard />} />
         <Route path="/distributor/medicines/new" element={<MedicineRegistrationPage />} />
         <Route path="/distributor/batch-management" element={<DistributorBatchManagement />} />

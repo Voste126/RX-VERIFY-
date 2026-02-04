@@ -49,7 +49,37 @@ export interface VerificationResponse {
     timestamp: string;
 }
 
+// Distributor Entity (for cryptographic key management)
+export interface DistributorEntity {
+    id: string;
+    name: string;
+    public_key: string;
+    private_key?: string; // Only returned on creation!
+    is_verified_regulator: boolean;
+}
+
+export interface CreateDistributorEntityData {
+    name: string;
+    is_verified_regulator: boolean;
+}
+
 export const distributorService = {
+    // Distributor Entity Management (Cryptographic Keys)
+    async createDistributorEntity(data: CreateDistributorEntityData): Promise<DistributorEntity> {
+        const response = await api.post('/distributors/', data);
+        return response.data;
+    },
+
+    async getDistributorEntityById(id: string): Promise<DistributorEntity> {
+        const response = await api.get(`/distributors/${id}/`);
+        return response.data;
+    },
+
+    async getDistributorEntities(): Promise<DistributorEntity[]> {
+        const response = await api.get('/distributors/');
+        return response.data;
+    },
+
     // Medicine APIs
     async createMedicine(data: CreateMedicineData): Promise<Medicine> {
         const response = await api.post('/medicines/', data);
