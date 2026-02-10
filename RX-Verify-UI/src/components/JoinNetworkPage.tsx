@@ -28,9 +28,9 @@ const JoinNetworkPage: React.FC = () => {
             <a className="text-sm font-medium text-slate-300 hover:text-white transition-colors" href="#">
               Documentation
             </a>
-            <button className="bg-primary hover:bg-primary/90 text-white text-sm font-bold px-5 py-2 rounded-lg transition-all shadow-[0_0_15px_rgba(0,85,255,0.3)]">
+            <Link to="/login" className="bg-primary hover:bg-primary/90 text-white text-sm font-bold px-5 py-2 rounded-lg transition-all shadow-[0_0_15px_rgba(0,85,255,0.3)]">
               Login
-            </button>
+            </Link>
           </nav>
         </div>
       </header>
@@ -77,9 +77,9 @@ const JoinNetworkPage: React.FC = () => {
           <div className="flex justify-center gap-6 pt-8 border-t border-white/5">
             <span className="text-sm text-slate-400">
               Already have an account?{' '}
-              <a className="text-primary hover:text-primary/80 font-medium ml-1" href="#">
+              <Link to="/login" className="text-primary hover:text-primary/80 font-medium ml-1">
                 Log in here
-              </a>
+              </Link>
             </span>
           </div>
         </div>

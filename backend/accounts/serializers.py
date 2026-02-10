@@ -57,8 +57,11 @@ class UserSerializer(serializers.ModelSerializer):
         # Extract password
         password = validated_data.pop('password')
         
-        # Create user instance
+        # Create user instance with is_active=True by default
         user = User(**validated_data)
+        
+        # Ensure user is active (can login immediately)
+        user.is_active = True
         
         # Set password (this hashes it)
         user.set_password(password)

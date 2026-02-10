@@ -49,11 +49,8 @@ const PharmacistOnboardingPage: React.FC = () => {
         license_number: licenseNumber,
       });
       
-      // Auto-login after successful registration
-      await authService.login({ username, password });
-      
-      // Navigate to pharmacist dashboard
-      navigate('/pharmacist/dashboard');
+      // Redirect to login page after successful registration
+      navigate('/login', { state: { fromRegistration: true, role: 'Pharmacist' } });
     } catch (err: any) {
       console.error('Registration error:', err);
       const errorData = err.response?.data;

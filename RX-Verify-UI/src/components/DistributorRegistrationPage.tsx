@@ -54,12 +54,8 @@ const DistributorRegistrationPage: React.FC = () => {
         license_number: licenseNumber,
       });
       
-      // Auto-login after successful registration
-      await authService.login({ username, password });
-      
-      // Navigate to cryptographic vault to receive keys
-      // Distributor needs to get their Ed25519 keypair before accessing dashboard
-      navigate('/register/distributor/vault');
+      // Redirect to login page after successful registration
+      navigate('/login', { state: { fromRegistration: true, role: 'Distributor' } });
     } catch (err: any) {
       console.error('Registration error:', err);
       const errorData = err.response?.data;

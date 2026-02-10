@@ -53,12 +53,8 @@ const PatientRegistrationPage: React.FC = () => {
         last_name: lastName,
       });
       
-      // Auto-login after successful registration
-      await authService.login({ username, password });
-      
-      // Navigate to landing page (no patient dashboard exists yet)
-      // TODO: Create patient dashboard and update this route
-      navigate('/');
+      // Redirect to login page after successful registration
+      navigate('/login', { state: { fromRegistration: true, role: 'Patient' } });
     } catch (err: any) {
       console.error('Registration error:', err);
       const errorData = err.response?.data;

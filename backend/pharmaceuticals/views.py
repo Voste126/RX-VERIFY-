@@ -9,7 +9,7 @@ from drf_spectacular.types import OpenApiTypes
 
 from .models import Medicine
 from .serializers import MedicineSerializer
-from accounts.permissions import IsAdminOrReadOnly
+from accounts.permissions import IsDistributorOrAdminForCreate
 
 
 @extend_schema_view(
@@ -73,7 +73,7 @@ from accounts.permissions import IsAdminOrReadOnly
         - manufacturer_name: Manufacturing company
         - distributor: Distributor UUID
         
-        **Requires admin role.**
+        **Requires distributor or admin role.**
         """,
         tags=['Medicines'],
         examples=[
@@ -124,7 +124,7 @@ from accounts.permissions import IsAdminOrReadOnly
         Update all fields of an existing medicine.
         
         All fields must be provided (use PATCH for partial updates).
-        Requires admin role.
+        Requires distributor or admin role.
         """,
         tags=['Medicines'],
     ),
@@ -134,7 +134,7 @@ from accounts.permissions import IsAdminOrReadOnly
         Update specific fields of a medicine without providing all fields.
         
         Useful for updating just the strength, manufacturer, or other specific attributes.
-        Requires admin role.
+        Requires distributor or admin role.
         """,
         tags=['Medicines'],
         examples=[
@@ -189,7 +189,7 @@ class MedicineViewSet(viewsets.ModelViewSet):
     
     queryset = Medicine.objects.all().select_related('distributor')
     serializer_class = MedicineSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsDistributorOrAdminForCreate]
     
     # Enable search by medicine name, active ingredient, and manufacturer
     search_fields = ['name', 'active_ingredient', 'manufacturer_name', 'category']

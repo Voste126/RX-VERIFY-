@@ -12,7 +12,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResp
 
 from .models import LotManifest
 from .serializers import LotManifestSerializer
-from accounts.permissions import IsAdminOrReadOnly
+from accounts.permissions import IsDistributorOrAdminForManifests
 
 
 @extend_schema_view(
@@ -160,7 +160,7 @@ class LotManifestViewSet(viewsets.ModelViewSet):
     
     queryset = LotManifest.objects.all().select_related('medicine', 'distributor')
     serializer_class = LotManifestSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsDistributorOrAdminForManifests]
     
     # Enable search by batch number
     search_fields = ['batch_number']

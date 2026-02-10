@@ -19,6 +19,7 @@ export interface CreateMedicineData {
     strength: string;
     dosage_form: string;
     manufacturer_name: string;
+    distributor: string;  // UUID of the distributor
 }
 
 export interface LotManifest {
@@ -36,6 +37,7 @@ export interface CreateLotManifestData {
     batch_number: string;
     expiry_date: string;
     medicine: string;
+    distributor: string;  // UUID of the distributor
 }
 
 export interface VerificationResponse {
@@ -77,7 +79,8 @@ export const distributorService = {
 
     async getDistributorEntities(): Promise<DistributorEntity[]> {
         const response = await api.get('/distributors/');
-        return response.data;
+        // Handle both paginated {results: [...]} and direct array responses
+        return Array.isArray(response.data) ? response.data : response.data.results || [];
     },
 
     // Medicine APIs
@@ -86,13 +89,15 @@ export const distributorService = {
         return response.data;
     },
 
-    async getMedicines(filters?: { category?: string; search?: string }): Promise<Medicine[]> {
+    async getMedicines(filters?: { category?: string; search?: string; distributor?: string }): Promise<Medicine[]> {
         const params = new URLSearchParams();
         if (filters?.category) params.append('category', filters.category);
         if (filters?.search) params.append('search', filters.search);
+        if (filters?.distributor) params.append('distributor', filters.distributor);
 
         const response = await api.get(`/medicines/?${params.toString()}`);
-        return response.data;
+        // Handle both paginated {results: [...]} and direct array responses
+        return Array.isArray(response.data) ? response.data : response.data.results || [];
     },
 
     async getMedicineById(id: string): Promise<Medicine> {
@@ -126,7 +131,8 @@ export const distributorService = {
         if (filters?.min_trust_score) params.append('min_trust_score', filters.min_trust_score.toString());
 
         const response = await api.get(`/manifests/?${params.toString()}`);
-        return response.data;
+        // Handle both paginated {results: [...]} and direct array responses
+        return Array.isArray(response.data) ? response.data : response.data.results || [];
     },
 
     async getLotManifestById(id: string): Promise<LotManifest> {

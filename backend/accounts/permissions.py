@@ -1,88 +1,205 @@
-"""
-Custom permission classes for role-based access control.
-
-This module defines permissions based on user roles (Admin, Pharmacist, Patient).
-"""
 from rest_framework import permissions
-
-
-class IsPharmacist(permissions.BasePermission):
-    """
-    Permission class that only allows pharmacists to access the view.
-    
-    Used for endpoints that require pharmaceutical professional privileges,
-    such as creating receipt events.
-    """
-    
-    def has_permission(self, request, view):
-        """
-        Check if the user is authenticated and has the 'Pharmacist' role.
-        
-        Args:
-            request: The HTTP request object
-            view: The view being accessed
-            
-        Returns:
-            bool: True if user is an authenticated pharmacist, False otherwise
-        """
-        return (
-            request.user and 
-            request.user.is_authenticated and 
-            request.user.role == 'Pharmacist'
-        )
-
-
-class IsPatientOrPharmacist(permissions.BasePermission):
-    """
-    Permission class that allows both patients and pharmacists to access the view.
-    
-    Used for endpoints that are accessible to general users and pharmaceutical
-    professionals, such as creating crowd flags for quality reports.
-    """
-    
-    def has_permission(self, request, view):
-        """
-        Check if the user is authenticated and has either 'Patient' or 'Pharmacist' role.
-        
-        Args:
-            request: The HTTP request object
-            view: The view being accessed
-            
-        Returns:
-            bool: True if user is an authenticated patient or pharmacist, False otherwise
-        """
-        return (
-            request.user and 
-            request.user.is_authenticated and 
-            request.user.role in ['Patient', 'Pharmacist']
-        )
 
 
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
-    Permission class that allows read access to anyone, but write access only to admins.
-    
-    Used for reference data endpoints like distributors and medicines.
+    Custom permission to only allow admins to create/update/delete.
+    Read-only access for all authenticated users.
     """
-    
+
     def has_permission(self, request, view):
-        """
-        Check if the request is a safe method (GET, HEAD, OPTIONS) or if user is admin.
-        
-        Args:
-            request: The HTTP request object
-            view: The view being accessed
-            
-        Returns:
-            bool: True if safe method or admin user, False otherwise
-        """
-        # Allow read permissions to any authenticated user
+        # Allow read-only access to all authenticated users
         if request.method in permissions.SAFE_METHODS:
             return request.user and request.user.is_authenticated
         
         # Write permissions only for admin users
+        return request.user and request.user.is_authenticated and request.user.role == 'Admin'
+
+
+class IsPharmacist(permissions.BasePermission):
+    """Only allow pharmacists to access."""
+    
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'Pharmacist'
+
+
+class IsPatient(permissions.BasePermission):
+    """Only allow patients to access."""
+    
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'Patient'
+
+
+class IsDistributor(permissions.BasePermission):
+    """Only allow distributors to access."""
+    
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == 'Distributor'
+
+
+class IsPharmacistOrPatient(permissions.BasePermission):
+    """Only pharmacists and patients can access."""
+    
+    def has_permission(self, request, view):
         return (
-            request.user and 
-            request.user.is_authenticated and 
-            request.user.role == 'Admin'
+            request.user 
+            and request.user.is_authenticated 
+            and request.user.role in ['Pharmacist', 'Patient']
         )
+
+
+# Alias for backward compatibility
+IsPatientOrPharmacist = IsPharmacistOrPatient
+
+
+
+class IsOwnerOrAdmin(permissions.BasePermission):
+    """
+    Only allow object owners or admins to modify.
+    """
+    
+    def has_object_permission(self, request, view, obj):
+        # Admins have full access
+        if request.user.role == 'Admin':
+            return True
+        
+        # Check if object has 'user' attribute for ownership
+        if hasattr(obj, 'user'):
+            return obj.user == request.user
+        
+        # Check if object has 'pharmacist' attribute (for ReceiptEvent)
+        if hasattr(obj, 'pharmacist'):
+            return obj.pharmacist == request.user
+        
+        # Check if object has 'patient' attribute (for CrowdFlag)
+        if hasattr(obj, 'patient'):
+            return obj.patient == request.user
+        
+        return False
+
+
+class IsPharmacistForReceipts(permissions.BasePermission):
+    """
+    Pharmacists can create receipt events.
+    All authenticated users can read.
+    """
+    
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Read access for all authenticated users
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        
+        # Write access only for pharmacists
+        return request.user.role == 'Pharmacist'
+
+
+class IsDistributorOrAdminForCreate(permissions.BasePermission):
+    """
+    Custom permission to allow distributors to create/manage medicines
+    and admins to have full access.
+    - Distributors can CREATE and UPDATE medicines
+    - Admins have full access (CREATE, UPDATE, DELETE)
+    - All authenticated users can READ
+    """
+    
+    def has_permission(self, request, view):
+        """Check if user has permission for the action."""
+        # Must be authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Read operations - all authenticated users
+        if view.action in ['list', 'retrieve']:
+            return True
+        
+        # Create and Update - distributors and admins
+        if view.action in ['create', 'update', 'partial_update']:
+            return request.user.role in ['Distributor', 'Admin']
+        
+        # Delete - admins only
+        if view.action == 'destroy':
+            return request.user.role == 'Admin'
+        
+        # Default deny
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        """Check if user has permission for specific object."""
+        # Read operations - all authenticated users
+        if view.action == 'retrieve':
+            return True
+        
+        # Admins can do anything
+        if request.user.role == 'Admin':
+            return True
+        
+        # Distributors can update medicines associated with their entity
+        if view.action in ['update', 'partial_update']:
+            if request.user.role == 'Distributor':
+                # Check if this medicine belongs to distributor's entity
+                try:
+                    distributor_entity = request.user.distributor_entities.first()
+                    return obj.distributor == distributor_entity
+                except:
+                    return False
+        
+        # Delete - only admins (already handled above)
+        return False
+
+
+class IsDistributorOrAdminForManifests(permissions.BasePermission):
+    """
+    Custom permission for lot manifest operations.
+    
+    - READ: All authenticated users
+    - CREATE: Distributors and Admins
+    - UPDATE: Distributors and Admins (own manifests) or Admins (all)
+    - DELETE: Admins only
+    """
+    
+    def has_permission(self, request, view):
+        """Check if user has permission for the action."""
+        # Must be authenticated
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Read operations - all authenticated users
+        if view.action in ['list', 'retrieve', 'verify', 'verify_qr']:
+            return True
+        
+        # Create and Update - distributors and admins
+        if view.action in ['create', 'update', 'partial_update']:
+            return request.user.role in ['Distributor', 'Admin']
+        
+        # Delete - admins only
+        if view.action == 'destroy':
+            return request.user.role == 'Admin'
+        
+        # Default deny
+        return False
+    
+    def has_object_permission(self, request, view, obj):
+        """Check if user has permission for specific object."""
+        # Read operations - all authenticated users
+        if view.action in ['retrieve', 'verify', 'verify_qr']:
+            return True
+        
+        # Admins can do anything
+        if request.user.role == 'Admin':
+            return True
+        
+        # Distributors can update their own manifests
+        if view.action in ['update', 'partial_update']:
+            if request.user.role == 'Distributor':
+                # Check if this manifest belongs to distributor's entity
+                try:
+                    distributor_entity = request.user.distributor_entities.first()
+                    return obj.distributor == distributor_entity
+                except:
+                    return False
+        
+        # Delete - only admins (already handled above)
+        return False

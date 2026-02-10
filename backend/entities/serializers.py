@@ -23,8 +23,8 @@ class DistributorSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Distributor
-        fields = ['id', 'name', 'public_key', 'private_key', 'is_verified_regulator']
-        read_only_fields = ['id', 'public_key', 'private_key']
+        fields = ['id', 'name', 'public_key', 'private_key', 'is_verified_regulator', 'created_by']
+        read_only_fields = ['id', 'public_key', 'private_key', 'created_by']
         extra_kwargs = {
             'public_key': {'required': False},
         }
@@ -36,6 +36,9 @@ class DistributorSerializer(serializers.ModelSerializer):
         Returns the distributor instance with a temporary 'private_key' attribute
         that will be serialized in the response.
         """
+        # Set created_by to the current user from context
+        validated_data['created_by'] = self.context['request'].user
+        
         # Check if public_key was provided
         if 'public_key' not in validated_data or not validated_data['public_key']:
             # Generate new Ed25519 key pair
