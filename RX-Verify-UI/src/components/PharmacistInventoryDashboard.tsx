@@ -1,449 +1,795 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Package, Truck, ClipboardCheck, PlusCircle, Loader2, QrCode, CheckCircle, 
+  AlertCircle, TrendingUp, Activity, Shield, LogOut 
+} from 'lucide-react';
 import Icon from './Icon';
+import { 
+  createOrder, 
+  getPharmacistOrders,
+  verifyReceipt,
+  type SupplyOrder 
+} from '../services/orders';
+import api from '../services/api';
 
-interface VerificationEvent {
+// TypeScript Interfaces
+interface ReceiptEvent {
   id: string;
-  timestamp: string;
-  productName: string;
-  productType: string;
-  batchId: string;
-  origin: string;
-  status: 'verified' | 'suspicious' | 'pending';
+  location_coord: { lat: number; lng: number };
+  user: string;
+  lot: string;
+  lot_batch_number?: string;
+  lot_medicine_name?: string;
+  created_at: string;
+}
+
+interface Distributor {
+  id: string;
+  name: string;
+}
+
+interface Medicine {
+  id: string;
+  name: string;
+  active_ingredient: string;
+  strength: string;
+}
+
+interface DashboardStats {
+  totalReceipts: number;
+  totalOrders: number;
+  pendingOrders: number;
+  shippedOrders: number;
+  deliveredOrders: number;
+  integrityScore: number;
 }
 
 const PharmacistInventoryDashboard: React.FC = () => {
-  const [activeNav, setActiveNav] = useState('dashboard');
-  const [searchQuery, setSearchQuery] = useState('');
-
-  // Mock data - replace with actual API calls
-  const stats = {
-    integrityScore: 98,
-    integrityChange: 2.4,
-    scansToday: 142,
-    avgDaily: 120,
-    flaggedItems: 1
-  };
-
-  const events: VerificationEvent[] = [
-    {
-      id: '1',
-      timestamp: 'Today, 10:42 AM',
-      productName: 'Amoxicillin 500mg',
-      productType: 'Capsules',
-      batchId: '#B4920',
-      origin: 'Pfizer Direct',
-      status: 'verified'
-    },
-    {
-      id: '2',
-      timestamp: 'Today, 09:15 AM',
-      productName: 'Lipitor 20mg',
-      productType: 'Tablets',
-      batchId: '#X2911',
-      origin: 'McKesson',
-      status: 'verified'
-    },
-    {
-      id: '3',
-      timestamp: 'Yesterday, 4:50 PM',
-      productName: 'OxyContin 40mg',
-      productType: 'Controlled Substance',
-      batchId: '#F9922',
-      origin: 'Unknown Dist.',
-      status: 'suspicious'
-    },
-    {
-      id: '4',
-      timestamp: 'Yesterday, 2:30 PM',
-      productName: 'Metformin 500mg',
-      productType: 'Tablets',
-      batchId: '#M8812',
-      origin: 'Amerisource',
-      status: 'verified'
-    },
-    {
-      id: '5',
-      timestamp: 'Yesterday, 11:15 AM',
-      productName: 'Lisinopril 10mg',
-      productType: 'Tablets',
-      batchId: '#L2291',
-      origin: 'Cardinal Health',
-      status: 'verified'
-    }
-  ];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'verified': return 'bg-green-50 text-green-700 border-green-200';
-      case 'suspicious': return 'bg-red-50 text-red-700 border-red-200';
-      case 'pending': return 'bg-yellow-50 text-yellow-700 border-yellow-200';
-      default: return 'bg-gray-50 text-gray-700 border-gray-200';
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  
+  // Data state
+  const [receipts, setReceipts] = useState<ReceiptEvent[]>([]);
+  const [orders, setOrders] = useState<SupplyOrder[]>([]);
+  const [distributors, setDistributors] = useState<Distributor[]>([]);
+  const [medicines, setMedicines] = useState<Medicine[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    totalReceipts: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
+    shippedOrders: 0,
+    deliveredOrders: 0,
+    integrityScore: 98
+  });
+  
+  // Modal states
+  const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [selectedOrderForVerify, setSelectedOrderForVerify] = useState<SupplyOrder | null>(null);
+  
+  // Form states
+  const [selectedDistributor, setSelectedDistributor] = useState('');
+  const [selectedMedicine, setSelectedMedicine] = useState('');
+  const [quantity, setQuantity] = useState(100);
+  const [scannedUuid, setScannedUuid] = useState('');
+  const [verificationResult, setVerificationResult] = useState<any>(null);
+  
+  useEffect(() => {
+    loadAllData();
+    loadUserData();
+  }, []);
+  
+  const loadUserData = () => {
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      setUser(JSON.parse(userData));
     }
   };
-
-  const getRowBgColor = (status: string) => {
-    if (status === 'suspicious') return 'bg-red-50/30 hover:bg-red-50/50';
-    return 'hover:bg-gray-50';
+  
+  const loadAllData = async () => {
+    try {
+      setLoading(true);
+      console.log('[PharmacistDashboard] Loading data...');
+      
+      const [receiptsData, ordersData, distributorsData] = await Promise.all([
+        api.get<{results: ReceiptEvent[]}>('/receipts/').then(r => r.data.results || r.data),
+        getPharmacistOrders(),
+        api.get<{results: Distributor[]}>('/distributors/').then(r => {
+          console.log('[PharmacistDashboard] Distributors response:', r.data);
+          // Extract results from paginated response
+          return r.data.results || r.data;
+        })
+      ]);
+      
+      console.log('[PharmacistDashboard] Loaded:', {
+        receipts: receiptsData.length,
+        orders: ordersData.length,
+        distributors: distributorsData.length
+      });
+      
+      setReceipts(receiptsData);
+      setOrders(ordersData);
+      setDistributors(distributorsData);
+      
+      // Don't load all medicines initially - wait for distributor selection
+      setMedicines([]);
+      
+      // Calculate stats
+      setStats({
+        totalReceipts: receiptsData.length,
+        totalOrders: ordersData.length,
+        pendingOrders: ordersData.filter(o => o.status === 'PENDING').length,
+        shippedOrders: ordersData.filter(o => o.status === 'SHIPPED').length,
+        deliveredOrders: ordersData.filter(o => o.status === 'DELIVERED').length,
+        integrityScore: 98
+      });
+    } catch (error) {
+      console.error('[PharmacistDashboard] Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
-
+  
+  const loadMedicinesByDistributor = async (distributorId: string) => {
+    try {
+      setSubmitting(true);
+      // Fetch medicines filtered by distributor
+      const response = await api.get<{results: Medicine[]}>(`/medicines/?distributor=${distributorId}`);
+      const medicinesData = response.data.results || response.data;
+      setMedicines(medicinesData);
+      
+      // Reset selected medicine when distributor changes
+      setSelectedMedicine('');
+    } catch (error) {
+      console.error('Error loading medicines for distributor:', error);
+      setMedicines([]);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  const handleCreateOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedDistributor || !selectedMedicine || quantity <= 0) {
+      alert('Please fill in all fields');
+      return;
+    }
+    
+    try {
+      setSubmitting(true);
+      
+      // Backend expects only medicine_id and quantity in items
+      await createOrder({
+        distributor: selectedDistributor,
+        items: [{
+          medicine_id: selectedMedicine,
+          quantity: quantity
+        }]
+      });
+      
+      await loadAllData();
+      
+      setSelectedDistributor('');
+      setSelectedMedicine('');
+      setQuantity(100);
+      setShowCreateOrderModal(false);
+      alert('✅ Order created successfully!');
+    } catch (error: any) {
+      console.error('Error creating order:', error);
+      console.error('Error response:', error.response?.data);
+      const errorMessage = error.response?.data?.error 
+        || error.response?.data?.detail
+        || JSON.stringify(error.response?.data)
+        || 'Failed to create order';
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  const openVerifyModal = (order: SupplyOrder) => {
+    setSelectedOrderForVerify(order);
+    setScannedUuid('');
+    setVerificationResult(null);
+    setShowVerifyModal(true);
+  };
+  
+  const closeVerifyModal = () => {
+    setShowVerifyModal(false);
+    setSelectedOrderForVerify(null);
+    setScannedUuid('');
+    setVerificationResult(null);
+  };
+  
+  const handleVerifyReceipt = async () => {
+    if (!scannedUuid.trim()) {
+      alert('Please enter a manifest UUID');
+      return;
+    }
+    
+    try {
+      setSubmitting(true);
+      const result = await verifyReceipt({ scanned_uuid: scannedUuid });
+      setVerificationResult(result);
+      await loadAllData();
+    } catch (error: any) {
+      console.error('Error verifying receipt:', error);
+      setVerificationResult({
+        status: 'INVALID',
+        message: error.response?.data?.message || 'Verification failed',
+        trust_score: '0.00',
+        chain_of_custody: false
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  const getStatusBadge = (status: SupplyOrder['status']) => {
+    const styles = {
+      PENDING: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
+      SHIPPED: 'bg-[#0055FF]/20 text-[#0055FF] border-[#0055FF]/30',
+      DELIVERED: 'bg-[#00C853]/20 text-[#00C853] border-[#00C853]/30',
+      REJECTED: 'bg-red-500/20 text-red-400 border-red-500/30'
+    };
+    
+    return (
+      <span className={`px-3 py-1 rounded-full border font-bold text-xs ${styles[status]}`}>
+        {status}
+      </span>
+    );
+  };
+  
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    
+    if (diffHours < 1) return `${Math.floor(diffMs / (1000 * 60))}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return date.toLocaleDateString();
+  };
+  
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    navigate('/login');
+  };
+  
+  if (loading) {
+    return (
+      <div className="bg-[#0a0e1a] h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-primary mx-auto animate-spin" />
+          <p className="mt-4 text-gray-400 font-medium">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+  
   return (
-    <div className="bg-[#f6f5f8] text-[#131018] font-display h-screen flex overflow-hidden">
+    <div className="bg-[#0a0e1a] text-white font-display h-screen flex overflow-hidden">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0 z-20">
-        {/* Logo Area */}
+      <aside className="w-64 bg-[#151923] border-r border-gray-700 flex flex-col h-full shrink-0 z-20">
         <div className="p-6 flex items-center gap-3">
-          <div className="size-10 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(85,0,255,0.3)]">
-            <Icon name="verified_user" className="text-white text-2xl" />
+          <div className="size-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30">
+            <Icon name="verified_user" className="text-primary text-2xl" />
           </div>
           <div>
-            <h1 className="text-[#131018] text-lg font-bold leading-tight tracking-tight">RxVerify Lite</h1>
-            <p className="text-[#6d5e8d] text-xs font-medium">Pharmacy Portal</p>
+            <h1 className="text-white text-lg font-bold leading-tight tracking-tight">RxVerify Lite</h1>
+            <p className="text-gray-400 text-xs font-medium">Pharmacy Portal</p>
           </div>
         </div>
-
-        {/* Main Navigation */}
+        
         <nav className="flex-1 px-4 py-2 flex flex-col gap-1 overflow-y-auto">
           <button
-            onClick={() => setActiveNav('dashboard')}
+            onClick={() => setActiveTab('dashboard')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
-              activeNav === 'dashboard'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
+              activeTab === 'dashboard'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
             }`}
           >
-            <Icon name="dashboard" className={activeNav === 'dashboard' ? 'filled' : ''} />
+            <Icon name="dashboard" className={activeTab === 'dashboard' ? 'filled' : ''} />
             <span className="text-sm font-bold">Dashboard</span>
           </button>
           
           <button
-            onClick={() => setActiveNav('inventory')}
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
-              activeNav === 'inventory'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
-            }`}
+            onClick={() => navigate('/pharmacist/orders')}
+            className="flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white"
           >
-            <Icon name="inventory_2" />
-            <span className="text-sm font-medium">Inventory</span>
+            <Icon name="local_shipping" />
+            <span className="text-sm font-medium">Orders</span>
           </button>
           
           <button
-            onClick={() => setActiveNav('alerts')}
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors justify-between ${
-              activeNav === 'alerts'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
-            }`}
-          >
-            <div className="flex items-center gap-3">
-              <Icon name="notifications" />
-              <span className="text-sm font-medium">Alerts</span>
-            </div>
-            <span className="bg-red-50 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">2</span>
-          </button>
-          
-          <button
-            onClick={() => setActiveNav('verify')}
+            onClick={() => setActiveTab('verify')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
-              activeNav === 'verify'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
+              activeTab === 'verify'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
             }`}
           >
             <Icon name="verified" />
             <span className="text-sm font-medium">Verify</span>
           </button>
           
-          <button
-            onClick={() => setActiveNav('settings')}
-            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
-              activeNav === 'settings'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
-            }`}
-          >
-            <Icon name="settings" />
-            <span className="text-sm font-medium">Settings</span>
-          </button>
-
-          {/* Quick Actions Divider */}
           <div className="mt-6 mb-2 px-3">
-            <p className="text-xs font-bold text-[#6d5e8d] uppercase tracking-wider">Quick Actions</p>
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Quick Actions</p>
           </div>
           
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#131018] hover:bg-gray-50 text-left transition-colors">
-            <div className="size-8 rounded-lg bg-orange-100 text-orange-600 flex items-center justify-center">
+          <button
+            onClick={() => setShowCreateOrderModal(true)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-white hover:bg-[#0a0e1a]/50 text-left transition-colors"
+          >
+            <div className="size-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+              <Icon name="add_shopping_cart" className="text-lg" />
+            </div>
+            <span className="text-sm font-medium">New Order</span>
+          </button>
+          
+          <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-white hover:bg-[#0a0e1a]/50 text-left transition-colors">
+            <div className="size-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
               <Icon name="report_problem" className="text-lg" />
             </div>
             <span className="text-sm font-medium">Report Issue</span>
           </button>
-          
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#131018] hover:bg-gray-50 text-left transition-colors">
-            <div className="size-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-              <Icon name="local_shipping" className="text-lg" />
-            </div>
-            <span className="text-sm font-medium">Request Restock</span>
-          </button>
         </nav>
-
+        
         {/* User Profile */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors">
+        <div className="p-4 border-t border-gray-700">
+          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#0a0e1a]/50 cursor-pointer transition-colors mb-2">
             <div className="size-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold">
-              SC
+              {user?.username?.charAt(0).toUpperCase() || 'P'}
             </div>
-            <div className="flex flex-col overflow-hidden">
-              <p className="text-sm font-bold text-[#131018] truncate">Dr. Sarah Chen</p>
-              <p className="text-xs text-[#6d5e8d] truncate">Head Pharmacist</p>
+            <div className="flex flex-col overflow-hidden flex-1">
+              <p className="text-sm font-bold text-white truncate">{user?.username || 'Pharmacist'}</p>
+              <p className="text-xs text-gray-400 truncate">Pharmacist</p>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20 transition-colors text-sm font-bold"
+          >
+            <LogOut className="w-4 h-4" />
+            Logout
+          </button>
         </div>
       </aside>
-
+      
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Top Header */}
-        <header className="h-16 shrink-0 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-8 z-10 sticky top-0">
+        <header className="h-16 shrink-0 bg-[#151923]/80 backdrop-blur-md border-b border-gray-700 flex items-center justify-between px-8 z-10 sticky top-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-[#131018]">Dashboard Overview</h2>
-            <span className="px-2 py-0.5 rounded border border-gray-200 bg-white text-xs text-[#6d5e8d] font-medium">
-              v2.4.0 Live
-            </span>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="relative hidden md:block">
-              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl" />
-              <input
-                className="h-10 pl-10 pr-4 w-80 rounded-lg border-none bg-gray-100 text-sm focus:ring-2 focus:ring-primary/50 placeholder-gray-500"
-                placeholder="Search batch ID, drug name..."
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <button className="size-10 rounded-lg hover:bg-gray-100 flex items-center justify-center text-[#6d5e8d] transition-colors relative">
-              <Icon name="notifications" />
-              <span className="absolute top-2.5 right-2.5 size-2 bg-red-600 rounded-full border border-white"></span>
-            </button>
+            <h2 className="text-xl font-bold text-white">Pharmacy Command Center</h2>
+            {stats.shippedOrders > 0 && (
+              <span className="px-3 py-1 rounded-full bg-[#0055FF]/20 text-[#0055FF] border border-[#0055FF]/30 text-xs font-bold flex items-center gap-1">
+                <Activity className="w-3 h-3" />
+                {stats.shippedOrders} shipment{stats.shippedOrders > 1 ? 's' : ''} ready
+              </span>
+            )}
           </div>
         </header>
-
+        
         {/* Scrollable Dashboard Content */}
         <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6 h-full">
-            {/* Left Column: Stats & Table */}
-            <div className="flex-1 flex flex-col gap-6 min-w-0">
+          <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
+            {/* Left Column: Stats & Activity */}
+            <div className="flex-1 flex flex-col gap-6">
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {/* Integrity Score */}
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group">
+                <div className="bg-[#151923] p-5 rounded-2xl border border-gray-700 relative overflow-hidden group hover:border-primary/50 transition-colors">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Icon name="shield" className="text-6xl text-primary" />
+                    <Shield className="w-16 h-16 text-primary" />
                   </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon name="security" className="text-primary text-xl" />
-                    <p className="text-sm font-semibold text-[#6d5e8d]">Integrity Score</p>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-extrabold text-[#131018]">
-                      {stats.integrityScore}<span className="text-lg text-gray-400">%</span>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Shield className="w-5 h-5 text-primary" />
+                      <p className="text-sm font-semibold text-gray-400">Integrity Score</p>
+                    </div>
+                    <p className="text-3xl font-extrabold text-white">
+                      {stats.integrityScore}<span className="text-lg text-gray-500">%</span>
                     </p>
-                    <div className="flex items-center gap-1 mt-1 text-green-600 text-xs font-bold">
-                      <Icon name="trending_up" className="text-sm" />
-                      <span>+{stats.integrityChange}% this week</span>
+                    <div className="flex items-center gap-1 mt-2 text-[#00C853] text-xs font-bold">
+                      <TrendingUp className="w-4 h-4" />
+                      <span>+2.4% this week</span>
                     </div>
                   </div>
                 </div>
-
-                {/* Scans Today */}
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group">
+                
+                {/* Total Receipts */}
+                <div className="bg-[#151923] p-5 rounded-2xl border border-gray-700 relative overflow-hidden group hover:border-[#00C853]/50 transition-colors">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Icon name="qr_code_scanner" className="text-6xl text-blue-500" />
+                    <ClipboardCheck className="w-16 h-16 text-[#00C853]" />
                   </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon name="qr_code" className="text-blue-500 text-xl" />
-                    <p className="text-sm font-semibold text-[#6d5e8d]">Scans Today</p>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-extrabold text-[#131018]">{stats.scansToday}</p>
-                    <div className="flex items-center gap-1 mt-1 text-[#6d5e8d] text-xs font-medium">
-                      <span>Avg. {stats.avgDaily} daily</span>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ClipboardCheck className="w-5 h-5 text-[#00C853]" />
+                      <p className="text-sm font-semibold text-gray-400">Verified Receipts</p>
                     </div>
+                    <p className="text-3xl font-extrabold text-white">{stats.totalReceipts}</p>
+                    <p className="text-xs text-gray-500 mt-2">Last 30 days</p>
                   </div>
                 </div>
-
-                {/* Flagged Items */}
-                <div className="bg-white p-5 rounded-2xl border border-red-100 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group">
+                
+                {/* Active Orders */}
+                <div className="bg-[#151923] p-5 rounded-2xl border border-gray-700 relative overflow-hidden group hover:border-[#0055FF]/50 transition-colors">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Icon name="warning" className="text-6xl text-red-600" />
+                    <Truck className="w-16 h-16 text-[#0055FF]" />
                   </div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Icon name="report" className="text-red-600 text-xl" />
-                    <p className="text-sm font-semibold text-red-600">Flagged Items</p>
-                  </div>
-                  <div>
-                    <p className="text-3xl font-extrabold text-[#131018]">{stats.flaggedItems}</p>
-                    <div className="flex items-center gap-1 mt-1 text-red-600 text-xs font-bold">
-                      <span>Action Required</span>
+                  <div className="relative z-10">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Truck className="w-5 h-5 text-[#0055FF]" />
+                      <p className="text-sm font-semibold text-gray-400">Active Orders</p>
+                    </div>
+                    <p className="text-3xl font-extrabold text-white">{stats.totalOrders}</p>
+                    <div className="flex items-center gap-3 mt-2 text-xs">
+                      <span className="text-yellow-400">{stats.pendingOrders} pending</span>
+                      <span className="text-[#0055FF]">{stats.shippedOrders} shipped</span>
                     </div>
                   </div>
                 </div>
               </div>
-
-              {/* Recent Events Table */}
-              <div className="flex-1 bg-white rounded-2xl border border-gray-200 shadow-sm flex flex-col overflow-hidden min-h-[400px]">
-                <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+              
+              {/* Recent Activity Feed */}
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 flex flex-col overflow-hidden">
+                <div className="p-5 border-b border-gray-700 flex justify-between items-center">
                   <div>
-                    <h3 className="text-lg font-bold text-[#131018]">Recent Events</h3>
-                    <p className="text-xs text-[#6d5e8d]">Real-time inventory verification feed</p>
+                    <h3 className="text-lg font-bold text-white">Recent Activity</h3>
+                    <p className="text-xs text-gray-400">Real-time verification feed</p>
                   </div>
-                  <button className="text-sm text-primary font-bold hover:underline">View All</button>
                 </div>
-                <div className="flex-1 overflow-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-gray-50 sticky top-0 z-10">
-                      <tr>
-                        <th className="px-6 py-3 text-xs font-bold text-[#6d5e8d] uppercase tracking-wider">Timestamp</th>
-                        <th className="px-6 py-3 text-xs font-bold text-[#6d5e8d] uppercase tracking-wider">Product Name</th>
-                        <th className="px-6 py-3 text-xs font-bold text-[#6d5e8d] uppercase tracking-wider">Batch ID</th>
-                        <th className="px-6 py-3 text-xs font-bold text-[#6d5e8d] uppercase tracking-wider">Origin</th>
-                        <th className="px-6 py-3 text-xs font-bold text-[#6d5e8d] uppercase tracking-wider text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {events.map((event) => (
-                        <tr key={event.id} className={`group transition-colors ${getRowBgColor(event.status)}`}>
-                          <td className="px-6 py-4 text-sm text-[#6d5e8d] whitespace-nowrap">{event.timestamp}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                              <span className="text-sm font-bold text-[#131018]">{event.productName}</span>
-                              <span className="text-xs text-[#6d5e8d]">{event.productType}</span>
+                <div className="flex-1 overflow-auto max-h-96">
+                  {receipts.length === 0 ? (
+                    <div className="p-12 text-center">
+                      <Activity className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-400 text-sm">No recent activity</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-700">
+                      {receipts.slice(0, 10).map((receipt) => (
+                        <div key={receipt.id} className="p-4 hover:bg-[#0a0e1a]/50 transition-colors">
+                          <div className="flex items-start gap-3">
+                            <div className="size-10 rounded-xl bg-[#00C853]/20 border border-[#00C853]/30 flex items-center justify-center shrink-0">
+                              <CheckCircle className="w-5 h-5 text-[#00C853]" />
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <span className={`font-mono text-xs px-2 py-1 rounded ${
-                              event.status === 'suspicious' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-[#131018]'
-                            }`}>
-                              {event.batchId}
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-bold text-white truncate">{receipt.lot_medicine_name || 'Medicine'}</p>
+                              <p className="text-xs text-gray-400">Batch: {receipt.lot_batch_number || 'N/A'}</p>
+                              <p className="text-xs text-gray-500 mt-1">{formatDate(receipt.created_at)}</p>
+                            </div>
+                            <span className="px-2 py-1 rounded-full bg-[#00C853]/20 text-[#00C853] border border-[#00C853]/30 text-xs font-bold shrink-0">
+                              VERIFIED
                             </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-[#131018]">
-                            {event.origin === 'Unknown Dist.' ? (
-                              <span className="italic text-[#6d5e8d]">{event.origin}</span>
-                            ) : (
-                              event.origin
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-right">
-                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${getStatusColor(event.status)}`}>
-                              <Icon
-                                name={event.status === 'verified' ? 'check_circle' : 'warning'}
-                                className="text-[16px]"
-                              />
-                              {event.status.charAt(0).toUpperCase() + event.status.slice(1)}
-                            </span>
-                          </td>
-                        </tr>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-
-            {/* Right Rail: Widgets */}
-            <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0">
-              {/* Scan FAB / Primary Action Card */}
-              <div className="bg-gradient-to-br from-primary to-[#3d00b8] rounded-2xl p-6 text-white shadow-xl shadow-primary/30 relative overflow-hidden group cursor-pointer transition-transform hover:-translate-y-1">
-                {/* Decorative Circles */}
-                <div className="absolute -top-10 -right-10 size-40 rounded-full bg-white/10 blur-2xl"></div>
-                <div className="absolute bottom-0 left-0 size-20 rounded-full bg-white/5 blur-xl"></div>
-                <div className="relative z-10 flex flex-col items-center text-center gap-4">
-                  <div className="relative">
-                    {/* Pulsing Ring */}
-                    <div className="absolute inset-0 rounded-full bg-white/30 animate-ping"></div>
-                    <div className="size-16 bg-white text-primary rounded-full flex items-center justify-center shadow-lg">
-                      <Icon name="qr_code_scanner" className="text-3xl" />
+            
+            {/* Right Column: Orders & Quick Actions */}
+            <div className="w-full lg:w-96 flex flex-col gap-6 shrink-0">
+              {/* Pending Shipments */}
+              {stats.shippedOrders > 0 && (
+                <div className="bg-gradient-to-br from-[#0055FF] to-[#0033cc] rounded-2xl p-6 text-white shadow-xl shadow-[#0055FF]/30 relative overflow-hidden cursor-pointer hover:shadow-2xl hover:shadow-[#0055FF]/40 transition-all">
+                  <div className="absolute -top-10 -right-10 size-40 rounded-full bg-white/10 blur-2xl"></div>
+                  <div className="absolute bottom-0 left-0 size-20 rounded-full bg-white/5 blur-xl"></div>
+                  <div className="relative z-10 flex flex-col items-center text-center gap-4">
+                    <div className="relative">
+                      <div className="absolute inset-0 rounded-full bg-white/30 animate-ping"></div>
+                      <div className="size-16 bg-white text-[#0055FF] rounded-full flex items-center justify-center shadow-lg">
+                        <Truck className="w-8 h-8" />
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">{stats.shippedOrders} Shipment{stats.shippedOrders > 1 ? 's' : ''} Ready</h3>
+                      <p className="text-blue-100 text-xs mt-1">Click to receive stock</p>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-bold">Scan to Receive</h3>
-                    <p className="text-primary-100 text-xs mt-1">Verify batch ID via camera</p>
-                  </div>
                 </div>
+              )}
+              
+              {/* Quick Create Order */}
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 p-6">
+                <h4 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
+                  <PlusCircle className="w-5 h-5 text-primary" />
+                  Quick Order
+                </h4>
+                <button
+                  onClick={() => setShowCreateOrderModal(true)}
+                  className="w-full py-3 px-4 rounded-xl bg-primary text-white font-bold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-primary/30"
+                >
+                  <PlusCircle className="w-5 h-5" />
+                  Create New Order
+                </button>
               </div>
-
-              {/* Last Scan Location Map */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col">
-                <div className="p-4 border-b border-gray-200">
-                  <h4 className="font-bold text-[#131018] text-sm">Last Scan Location</h4>
+              
+              {/* Recent Orders */}
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 flex flex-col overflow-hidden flex-1">
+                <div className="p-4 border-b border-gray-700">
+                  <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                    <Package className="w-5 h-5 text-primary" />
+                    Recent Orders
+                  </h4>
                 </div>
-                <div className="h-48 relative bg-gray-100 w-full">
-                  {/* Map Placeholder */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center">
-                    <Icon name="map" className="text-6xl text-gray-300" />
-                  </div>
-                  {/* Location Pin */}
-                  <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-full flex flex-col items-center">
-                    <div className="bg-white px-2 py-1 rounded shadow-md text-[10px] font-bold text-[#131018] mb-1 whitespace-nowrap">
-                      Warehouse B
+                <div className="flex-1 overflow-auto">
+                  {orders.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <Package className="w-10 h-10 text-gray-600 mx-auto mb-2" />
+                      <p className="text-gray-400 text-xs">No orders yet</p>
                     </div>
-                    <Icon name="location_on" className="text-primary text-4xl drop-shadow-md" />
-                  </div>
-                </div>
-                <div className="p-4 bg-gray-50/50 text-xs text-[#6d5e8d] flex justify-between items-center">
-                  <span>GPS: 34.0522° N, 118.2437° W</span>
-                  <span className="text-green-600 font-bold">Match</span>
-                </div>
-              </div>
-
-              {/* System Status */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden flex flex-col flex-1">
-                <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-                  <h4 className="font-bold text-[#131018] text-sm">System Status</h4>
-                  <span className="size-2 rounded-full bg-green-600"></span>
-                </div>
-                <div className="p-4 flex flex-col gap-4">
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 size-2 rounded-full bg-green-500 shrink-0"></div>
-                    <div>
-                      <p className="text-xs font-bold text-[#131018]">Database Sync</p>
-                      <p className="text-[10px] text-[#6d5e8d]">Updated 2m ago</p>
+                  ) : (
+                    <div className="divide-y divide-gray-700">
+                      {orders.slice(0, 5).map((order) => (
+                        <div key={order.id} className="p-3 hover:bg-[#0a0e1a]/50 transition-colors">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <p className="text-xs font-mono text-gray-400">{order.id.slice(0, 8)}...</p>
+                            {getStatusBadge(order.status)}
+                          </div>
+                          <p className="text-sm font-bold text-white truncate">{order.distributor_name}</p>
+                          <p className="text-xs text-gray-400 truncate mt-1">
+                            {order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? 's' : ''}
+                          </p>
+                          {order.status === 'SHIPPED' && (
+                            <button
+                              onClick={() => openVerifyModal(order)}
+                              className="mt-2 w-full py-1.5 px-3 rounded-lg bg-[#00C853]/20 text-[#00C853] border border-[#00C853]/30 hover:bg-[#00C853]/30 text-xs font-bold transition-colors flex items-center justify-center gap-1"
+                            >
+                              <QrCode className="w-3 h-3" />
+                              Receive
+                            </button>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 size-2 rounded-full bg-green-500 shrink-0"></div>
-                    <div>
-                      <p className="text-xs font-bold text-[#131018]">API Gateway</p>
-                      <p className="text-[10px] text-[#6d5e8d]">Operational</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 size-2 rounded-full bg-yellow-500 shrink-0"></div>
-                    <div>
-                      <p className="text-xs font-bold text-[#131018]">Label Printer</p>
-                      <p className="text-[10px] text-[#6d5e8d]">Low Ink Warning</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
-                <div className="mt-auto p-4 border-t border-gray-200">
-                  <button className="w-full py-2 px-3 rounded-lg border border-gray-200 text-xs font-bold text-[#131018] hover:bg-gray-50 transition-colors">
-                    Run Diagnostics
-                  </button>
-                </div>
+                {orders.length > 5 && (
+                  <div className="p-3 border-t border-gray-700">
+                    <button 
+                      onClick={() => navigate('/pharmacist/orders')}
+                      className="w-full text-xs text-primary font-bold hover:underline"
+                    >
+                      View All Orders →
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         </div>
       </main>
-
-      {/* Floating Mobile Action */}
-      <div className="fixed bottom-6 right-6 lg:hidden z-50">
-        <button className="size-14 rounded-full bg-primary text-white shadow-[0_0_15px_rgba(85,0,255,0.3)] flex items-center justify-center relative">
-          <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping"></span>
-          <Icon name="qr_code_scanner" className="text-2xl relative z-10" />
-        </button>
-      </div>
+      
+      {/* Create Order Modal */}
+      {showCreateOrderModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <PlusCircle className="w-6 h-6 text-primary" />
+              Create New Supply Order
+            </h3>
+            
+            <form onSubmit={handleCreateOrder} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-2">
+                  Select Distributor
+                </label>
+                <select
+                  value={selectedDistributor}
+                  onChange={(e) => {
+                    const distId = e.target.value;
+                    setSelectedDistributor(distId);
+                    if (distId) {
+                      loadMedicinesByDistributor(distId);
+                    } else {
+                      setMedicines([]);
+                      setSelectedMedicine('');
+                    }
+                  }}
+                  required
+                  className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                >
+                  <option value="">Choose a distributor...</option>
+                  {distributors.map(dist => (
+                    <option key={dist.id} value={dist.id}>{dist.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-2">
+                  Select Medicine
+                </label>
+                <select
+                  value={selectedMedicine}
+                  onChange={(e) => setSelectedMedicine(e.target.value)}
+                  required
+                  disabled={!selectedDistributor || medicines.length === 0}
+                  className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-primary/50 focus:border-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="">
+                    {!selectedDistributor 
+                      ? 'Select a distributor first...' 
+                      : submitting 
+                      ? 'Loading medicines...' 
+                      : medicines.length === 0 
+                      ? 'No medicines available from this distributor' 
+                      : 'Choose a medicine...'}
+                  </option>
+                  {medicines.map(med => (
+                    <option key={med.id} value={med.id}>
+                      {med.name} - {med.active_ingredient} {med.strength}
+                    </option>
+                  ))}
+                </select>
+                {selectedDistributor && !submitting && medicines.length > 0 && (
+                  <p className="text-xs text-gray-400 mt-2">
+                    {medicines.length} medicine{medicines.length > 1 ? 's' : ''} available from this distributor
+                  </p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-2">
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseInt(e.target.value))}
+                  min="1"
+                  required
+                  className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                />
+              </div>
+              
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateOrderModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-700 bg-[#0a0e1a] text-gray-300 rounded-lg hover:bg-gray-800 font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Order'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Receive Stock / Verify Modal */}
+      {showVerifyModal && selectedOrderForVerify && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <QrCode className="w-6 h-6 text-primary" />
+              Receive Stock
+            </h3>
+            
+            {!verificationResult ? (
+              <>
+                <div className="bg-[#0a0e1a] border border-gray-700 rounded-lg p-4 mb-4">
+                  <h4 className="text-sm font-bold text-gray-400 mb-2">Order Details</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Distributor:</span>
+                      <span className="text-white font-bold">{selectedOrderForVerify.distributor_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Items:</span>
+                      <span className="text-white">{selectedOrderForVerify.items[0]?.name}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <p className="text-gray-400 text-sm mb-4">
+                  Scan the QR code on the package or enter the manifest UUID
+                </p>
+                
+                <input
+                  type="text"
+                  value={scannedUuid}
+                  onChange={(e) => setScannedUuid(e.target.value)}
+                  placeholder="Manifest UUID (from QR code)"
+                  className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white mb-4 focus:ring-2 focus:ring-primary/50"
+                />
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeVerifyModal}
+                    className="flex-1 px-4 py-2 border border-gray-700 bg-[#0a0e1a] text-gray-300 rounded-lg hover:bg-gray-800 font-bold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleVerifyReceipt}
+                    disabled={submitting}
+                    className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-colors disabled:opacity-50"
+                  >
+                    {submitting ? 'Verifying...' : 'Verify & Receive'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className={`p-4 rounded-lg mb-4 ${
+                  verificationResult.chain_of_custody 
+                    ? 'bg-[#00C853]/10 border border-[#00C853]/30' 
+                    : verificationResult.status === 'VERIFIED'
+                    ? 'bg-[#0055FF]/10 border border-[#0055FF]/30'
+                    : 'bg-red-500/10 border border-red-500/30'
+                }`}>
+                  <div className="flex items-start gap-3 mb-3">
+                    {verificationResult.chain_of_custody ? (
+                      <CheckCircle className="w-6 h-6 text-[#00C853] mt-0.5" />
+                    ) : verificationResult.status === 'VERIFIED' ? (
+                      <AlertCircle className="w-6 h-6 text-[#0055FF] mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-6 h-6 text-red-400 mt-0.5" />
+                    )}
+                    <p className={`font-bold text-sm ${
+                      verificationResult.chain_of_custody ? 'text-[#00C853]' : 
+                      verificationResult.status === 'VERIFIED' ? 'text-[#0055FF]' : 'text-red-400'
+                    }`}>
+                      {verificationResult.message}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Trust Score:</span>
+                      <span className="font-bold text-white">{verificationResult.trust_score}</span>
+                    </div>
+                    {verificationResult.bonus_applied && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Chain Bonus:</span>
+                        <span className="font-bold text-[#00C853]">{verificationResult.bonus_applied}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-gray-400">Batch:</span>
+                      <span className="font-mono text-white text-xs">{verificationResult.batch_number}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={closeVerifyModal}
+                  className="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold transition-colors"
+                >
+                  Done
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -75,12 +75,17 @@ export const authService = {
     async logout(): Promise<void> {
         const refreshToken = localStorage.getItem('refresh_token');
         try {
+            // Try to invalidate token on backend
             await api.post('/auth/logout/', { refresh_token: refreshToken });
+        } catch (error) {
+            // Silently ignore logout API errors - we'll clear local storage anyway
+            console.log('Logout API call failed, clearing local storage anyway');
         } finally {
             // Clear local storage regardless of API response
             localStorage.removeItem('access_token');
             localStorage.removeItem('refresh_token');
             localStorage.removeItem('user');
+            localStorage.removeItem('distributor_entity_id');
         }
     },
 

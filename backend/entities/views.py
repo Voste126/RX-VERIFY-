@@ -128,8 +128,8 @@ class DistributorViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """
-        Filter distributors to show only those created by the current user.
-        Admins can see all distributors. Optionally filter by verification status.
+        Optionally filter distributors by verification status.
+        All authenticated users can see all distributors for ordering purposes.
         
         Query params:
             verified (bool): Filter by verification status
@@ -140,9 +140,8 @@ class DistributorViewSet(viewsets.ModelViewSet):
         """
         queryset = super().get_queryset()
         
-        # Filter by user unless admin
-        if not self.request.user.is_staff:
-            queryset = queryset.filter(created_by=self.request.user)
+        # Allow all authenticated users to see all distributors
+        # This is necessary for pharmacists to place orders with any distributor
         
         # Filter by verification status if param provided
         verified = self.request.query_params.get('verified', None)

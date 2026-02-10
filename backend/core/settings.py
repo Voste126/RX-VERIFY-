@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'manifests',
     'logs',
     'reports',
+    'orders',  # Chain of Custody feature
 ]
 
 MIDDLEWARE = [

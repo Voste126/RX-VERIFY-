@@ -42,4 +42,7 @@ urlpatterns = [
     
     # Crowdsourced Quality Reporting (reports app)
     path('api/', include('reports.urls')),
+    
+    # Supply Orders & Chain of Custody (orders app)
+    path('api/orders/', include('orders.urls')),
 ]

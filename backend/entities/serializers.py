@@ -27,6 +27,7 @@ class DistributorSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'public_key', 'private_key', 'created_by']
         extra_kwargs = {
             'public_key': {'required': False},
+            'created_by': {'required': False, 'allow_null': True},
         }
     
     def create(self, validated_data):

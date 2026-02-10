@@ -9,6 +9,8 @@ import CryptographicVaultPage from './components/CryptographicVaultPage'
 import QRCodeDisplayPage from './components/QRCodeDisplayPage'
 import PharmacistInventoryDashboard from './components/PharmacistInventoryDashboard'
 import DistributorDashboard from './components/DistributorDashboard'
+import PharmacistOrderDashboard from './components/PharmacistOrderDashboard'
+import DistributorOrderDashboard from './components/DistributorOrderDashboard'
 
 function App() {
   return (
@@ -24,13 +26,16 @@ function App() {
         
         {/* Distributor Routes */}
         <Route path="/distributor/dashboard" element={<DistributorDashboard />} />
+        <Route path="/distributor/orders" element={<DistributorOrderDashboard />} />
         <Route path="/distributor/qr-codes/:manifestId" element={<QRCodeDisplayPage />} />
         
         {/* Pharmacist Routes */}
         <Route path="/pharmacist/dashboard" element={<PharmacistInventoryDashboard />} />
+        <Route path="/pharmacist/orders" element={<PharmacistOrderDashboard />} />
       </Routes>
     </Router>
   )
 }
 
 export default App
+

@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
+import { Loader2, Package, Truck } from 'lucide-react';
 import Icon from './Icon';
 import { distributorService, type Medicine, type LotManifest, type DistributorEntity } from '../services/distributor';
 import { authService } from '../services/auth';
+import { getDistributorOrders, fulfillOrder, type SupplyOrder, type FulfillOrderRequest } from '../services/orders';
 
 interface DashboardStats {
   totalMedicines: number;
   totalManifests: number;
+  totalOrders: number;
+  pendingOrders: number;
   pendingVerifications: number;
   entityStatus: 'registered' | 'pending' | 'none';
 }
@@ -27,9 +31,12 @@ const DistributorDashboard: React.FC = () => {
   // Data state
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [manifests, setManifests] = useState<LotManifest[]>([]);
+  const [orders, setOrders] = useState<SupplyOrder[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalMedicines: 0,
     totalManifests: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
     pendingVerifications: 0,
     entityStatus: 'none'
   });
@@ -38,6 +45,10 @@ const DistributorDashboard: React.FC = () => {
   const [showEntityForm, setShowEntityForm] = useState(false);
   const [showMedicineForm, setShowMedicineForm] = useState(false);
   const [showManifestForm, setShowManifestForm] = useState(false);
+  const [showFulfillModal, setShowFulfillModal] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<SupplyOrder | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  
   const [entityFormData, setEntityFormData] = useState({ name: '', license_number: '' });
   const [medicineFormData, setMedicineFormData] = useState({
     name: '',
@@ -49,6 +60,11 @@ const DistributorDashboard: React.FC = () => {
   });
   const [manifestFormData, setManifestFormData] = useState({
     medicine: '',
+    batch_number: '',
+    expiry_date: ''
+  });
+  const [fulfillFormData, setFulfillFormData] = useState({
+    medicine_id: '',
     batch_number: '',
     expiry_date: ''
   });
@@ -76,9 +92,10 @@ const DistributorDashboard: React.FC = () => {
             // Store entity ID in localStorage for backup
             localStorage.setItem('distributor_entity_id', entity.id);
             
-            // Load medicines and manifests
+            // Load medicines, manifests, and orders
             await loadMedicines(entity.id);
             await loadManifests(entity.id);
+            await loadOrders();
           } else {
             console.log('[Dashboard] No entities found');
             setStats(prev => ({ ...prev, entityStatus: 'none' }));
@@ -115,6 +132,60 @@ const DistributorDashboard: React.FC = () => {
       setStats(prev => ({ ...prev, totalManifests: data.length }));
     } catch (error) {
       console.error('Error loading manifests:', error);
+    }
+  };
+  
+  const loadOrders = async () => {
+    try {
+      console.log('[DistributorDashboard] Loading orders...');
+      const data = await getDistributorOrders();
+      console.log('[DistributorDashboard] Orders loaded:', data);
+      console.log('[DistributorDashboard] First order items:', data[0]?.items);
+      setOrders(data);
+      const pending = data.filter((order: SupplyOrder) => order.status === 'PENDING');
+      console.log('[DistributorDashboard] Pending orders:', pending.length);
+      setStats(prev => ({ 
+        ...prev, 
+        totalOrders: data.length,
+        pendingOrders: pending.length 
+      }));
+    } catch (error) {
+      console.error('[DistributorDashboard] Error loading orders:', error);
+    }
+  };
+  
+  const handleFulfillOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    
+    try {
+      setSubmitting(true);
+      
+      const response = await fulfillOrder(selectedOrder.id, {
+        medicine_id: fulfillFormData.medicine_id,
+        batch_number: fulfillFormData.batch_number,
+        expiry_date: fulfillFormData.expiry_date
+      });
+      
+      // Refresh orders and manifests
+      await loadOrders();
+      await loadManifests(distributorEntity?.id);
+      
+      // Reset and close
+      setShowFulfillModal(false);
+      setSelectedOrder(null);
+      setFulfillFormData({
+        medicine_id: '',
+        batch_number: '',
+        expiry_date: ''
+      });
+      
+      alert(`✅ ${response.message}\n\nBatch: ${response.batch_number}\nTrust Score: ${response.trust_score}`);
+    } catch (error: any) {
+      console.error('Error fulfilling order:', error);
+      alert(error.response?.data?.error || 'Failed to fulfill order');
+    } finally {
+      setSubmitting(false);
     }
   };
   
@@ -278,6 +349,23 @@ const DistributorDashboard: React.FC = () => {
           </button>
           
           <button
+            onClick={() => setActiveTab('orders')}
+            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
+              activeTab === 'orders'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
+            }`}
+          >
+            <Icon name="local_shipping" />
+            <span className="text-sm font-medium">Orders</span>
+            {stats.pendingOrders > 0 && (
+              <span className="ml-auto bg-[#FF6B00] text-white text-xs font-bold rounded-full px-2 py-0.5">
+                {stats.pendingOrders}
+              </span>
+            )}
+          </button>
+          
+          <button
             onClick={() => setActiveTab('manifests')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
               activeTab === 'manifests'
@@ -323,6 +411,7 @@ const DistributorDashboard: React.FC = () => {
             <h2 className="text-xl font-bold text-white">
               {activeTab === 'dashboard' && 'Dashboard Overview'}
               {activeTab === 'medicines' && 'Medicine Catalog'}
+              {activeTab === 'orders' && 'Pending Orders'}
               {activeTab === 'manifests' && 'Lot Manifests'}
               {activeTab === 'settings' && 'Settings'}
             </h2>
@@ -389,6 +478,24 @@ const DistributorDashboard: React.FC = () => {
                   </div>
                   <div>
                     <p className="text-3xl font-extrabold text-white">{stats.totalManifests}</p>
+                  </div>
+                </div>
+                
+                <div className="bg-[#151923] p-5 rounded-2xl border border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group hover:border-[#FF6B00]/50 transition-all">
+                  <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                    <Icon name="local_shipping" className="text-6xl text-[#FF6B00]" />
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="local_shipping" className="text-[#FF6B00] text-xl" />
+                    <p className="text-sm font-semibold text-gray-400">Orders</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <p className="text-3xl font-extrabold text-white">{stats.totalOrders}</p>
+                    {stats.pendingOrders > 0 && (
+                      <span className="px-2 py-1 rounded-full bg-[#FF6B00]/20 text-[#FF6B00] text-xs font-bold border border-[#FF6B00]/30">
+                        {stats.pendingOrders} pending
+                      </span>
+                    )}
                   </div>
                 </div>
                 
@@ -647,6 +754,118 @@ const DistributorDashboard: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          )}
+          
+          
+          {/* Orders Tab */}
+          {activeTab === 'orders' && (
+            <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-bold text-white">
+                  Pending Orders ({stats.pendingOrders})
+                </h3>
+              </div>
+              
+              {orders.filter(o => o.status === 'PENDING').length === 0 ? (
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-12 text-center">
+                  <Package className="mx-auto text-gray-600" size={64} />
+                  <p className="mt-4 text-gray-400">No pending orders</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.filter(o => o.status === 'PENDING').map((order) => (
+                    <div key={order.id} className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-6 hover:border-primary/50 transition-colors">
+                      <div className="flex justify-between items-start mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="px-3 py-1 rounded-full bg-[#FF6B00]/20 text-[#FF6B00] text-xs font-bold border border-[#FF6B00]/30">
+                              PENDING
+                            </span>
+                          </div>
+                          <div className="flex items-start gap-2 mb-1">
+                            <Icon name="receipt_long" className="text-gray-400 text-sm mt-0.5" />
+                            <div>
+                              <p className="text-xs text-gray-400">Order ID</p>
+                              <p className="text-white font-mono text-sm">{order.id}</p>
+                            </div>
+                          </div>
+                          <h4 className="text-white font-bold text-lg mt-3">{order.pharmacist_name}</h4>
+                          {order.pharmacist_pharmacy && (
+                            <p className="text-gray-400 text-sm">{order.pharmacist_pharmacy}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setSelectedOrder(order);
+                            // Set first item medicine_id as default
+                            if (order.items && order.items.length > 0) {
+                              setFulfillFormData(prev => ({
+                                ...prev,
+                                medicine_id: order.items[0].medicine_id
+                              }));
+                            }
+                            setShowFulfillModal(true);
+                          }}
+                          className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold text-sm transition-colors flex items-center gap-2"
+                        >
+                              <Truck size={18} />
+                          Fulfill Order
+                        </button>
+                      </div>
+                      
+                      <div className="border-t border-gray-700 pt-4 mt-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h5 className="text-white text-sm font-bold flex items-center gap-2">
+                            <Package size={16} className="text-primary" />
+                            Order Items ({order.items?.length || 0})
+                          </h5>
+                          <span className="text-xs text-gray-500">
+                            Total: {order.items?.reduce((sum, item) => sum + item.quantity, 0) || 0} units
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {order.items && order.items.length > 0 ? order.items.map((item, idx) => (
+                            <div key={idx} className="bg-[#0a0e1a] rounded-lg border border-gray-700 p-4 hover:border-primary/50 transition-colors">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="flex-1 min-w-0">
+                                  {item.name ? (
+                                    <>
+                                      <p className="text-white text-base font-bold mb-1">{item.name}</p>
+                                      <p className="text-xs text-gray-400 mb-1">Medicine ID</p>
+                                      <p className="text-gray-500 font-mono text-xs break-all">{item.medicine_id}</p>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <p className="text-xs text-gray-400 mb-1">Medicine ID</p>
+                                      <p className="text-white font-mono text-sm break-all">{item.medicine_id}</p>
+                                    </>
+                                  )}
+                                </div>
+                                <div className="shrink-0">
+                                  <div className="bg-primary/20 border border-primary/30 rounded-lg px-3 py-2 text-center min-w-[60px]">
+                                    <p className="text-primary text-xl font-bold">{item.quantity}</p>
+                                    <p className="text-primary text-[10px] font-semibold uppercase">Units</p>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          )) : (
+                            <div className="col-span-2 text-center py-4">
+                              <p className="text-gray-400 text-sm">No items found in this order</p>
+                              <p className="text-xs text-gray-500 mt-1">Order data: {JSON.stringify(order.items)}</p>
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-4 flex items-center gap-1">
+                          <Icon name="schedule" className="text-xs" />
+                          Ordered: {new Date(order.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
@@ -967,6 +1186,105 @@ const DistributorDashboard: React.FC = () => {
                   className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold text-sm"
                 >
                   Generate Keys & Register
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
+      {/* Fulfillment Modal */}
+      {showFulfillModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-2xl w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+              <Truck className="text-primary" size={24} />
+              Fulfill Order
+            </h3>
+            
+            <div className="mb-6 p-4 bg-[#0a0e1a] rounded-xl border border-gray-700">
+              <p className="text-sm text-gray-400 mb-1">Order ID</p>
+              <p className="text-white font-mono text-sm">{selectedOrder.id}</p>
+              <p className="text-sm text-gray-400 mt-3 mb-1">Pharmacist</p>
+              <p className="text-white font-bold">{selectedOrder.pharmacist_name}</p>
+              {selectedOrder.pharmacist_pharmacy && (
+                <p className="text-gray-400 text-sm">{selectedOrder.pharmacist_pharmacy}</p>
+              )}
+            </div>
+            
+            <form onSubmit={handleFulfillOrder} className="space-y-4">
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-1">Medicine</label>
+                <select
+                  required
+                  value={fulfillFormData.medicine_id}
+                  onChange={(e) => setFulfillFormData({ ...fulfillFormData, medicine_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                >
+                  <option value="">Select medicine...</option>
+                  {selectedOrder.items && selectedOrder.items.map((item) => (
+                    <option key={item.medicine_id} value={item.medicine_id}>
+                      {item.medicine_id.slice(0, 16)}... (Qty: {item.quantity})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-1">Batch Number</label>
+                <input
+                  type="text"
+                  required
+                  value={fulfillFormData.batch_number}
+                  onChange={(e) => setFulfillFormData({ ...fulfillFormData, batch_number: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                  placeholder="e.g., BATCH-2024-001"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-1">Expiry Date</label>
+                <input
+                  type="date"
+                  required
+                  value={fulfillFormData.expiry_date}
+                  onChange={(e) => setFulfillFormData({ ...fulfillFormData, expiry_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                />
+              </div>
+              
+              <div className="flex gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFulfillModal(false);
+                    setSelectedOrder(null);
+                    setFulfillFormData({
+                      medicine_id: '',
+                      batch_number: '',
+                      expiry_date: ''
+                    });
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-[#0a0e1a] transition-colors font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="animate-spin" size={18} />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Truck size={18} />
+                      Fulfill & Generate QR
+                    </>
+                  )}
                 </button>
               </div>
             </form>
