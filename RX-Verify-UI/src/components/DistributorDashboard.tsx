@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { QRCodeSVG } from 'qrcode.react';
 import Icon from './Icon';
 import { distributorService, type Medicine, type LotManifest, type DistributorEntity } from '../services/distributor';
 import { authService } from '../services/auth';
@@ -228,26 +229,26 @@ const DistributorDashboard: React.FC = () => {
   
   if (loading) {
     return (
-      <div className="bg-[#f6f5f8] h-screen flex items-center justify-center">
+      <div className="bg-[#0a0e1a] h-screen flex items-center justify-center">
         <div className="text-center">
           <Icon name="hourglass_empty" className="text-6xl text-primary animate-spin" />
-          <p className="mt-4 text-[#6d5e8d] font-medium">Loading dashboard...</p>
+          <p className="mt-4 text-gray-400 font-medium">Loading dashboard...</p>
         </div>
       </div>
     );
   }
   
   return (
-    <div className="bg-[#f6f5f8] text-[#131018] font-display h-screen flex overflow-hidden">
+    <div className="bg-[#0a0e1a] text-white font-display h-screen flex overflow-hidden">
       {/* Sidebar Navigation */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-full shrink-0 z-20">
+      <aside className="w-64 bg-[#151923] border-r border-gray-700 flex flex-col h-full shrink-0 z-20">
         <div className="p-6 flex items-center gap-3">
-          <div className="size-10 bg-primary rounded-xl flex items-center justify-center shadow-[0_0_15px_rgba(85,0,255,0.3)]">
-            <Icon name="local_shipping" className="text-white text-2xl" />
+          <div className="size-10 bg-primary/20 rounded-xl flex items-center justify-center border border-primary/30">
+            <Icon name="local_shipping" className="text-primary text-2xl" />
           </div>
           <div>
-            <h1 className="text-[#131018] text-lg font-bold leading-tight tracking-tight">RxVerify Lite</h1>
-            <p className="text-[#6d5e8d] text-xs font-medium">Distributor Portal</p>
+            <h1 className="text-white text-lg font-bold leading-tight tracking-tight">RxVerify Lite</h1>
+            <p className="text-gray-400 text-xs font-medium">Distributor Portal</p>
           </div>
         </div>
         
@@ -256,8 +257,8 @@ const DistributorDashboard: React.FC = () => {
             onClick={() => setActiveTab('dashboard')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
               activeTab === 'dashboard'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
             }`}
           >
             <Icon name="dashboard" className={activeTab === 'dashboard' ? 'filled' : ''} />
@@ -268,8 +269,8 @@ const DistributorDashboard: React.FC = () => {
             onClick={() => setActiveTab('medicines')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
               activeTab === 'medicines'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
             }`}
           >
             <Icon name="medication" />
@@ -280,8 +281,8 @@ const DistributorDashboard: React.FC = () => {
             onClick={() => setActiveTab('manifests')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
               activeTab === 'manifests'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
             }`}
           >
             <Icon name="assignment" />
@@ -292,8 +293,8 @@ const DistributorDashboard: React.FC = () => {
             onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
               activeTab === 'settings'
-                ? 'bg-primary/10 text-primary'
-                : 'text-[#6d5e8d] hover:bg-gray-50 hover:text-[#131018]'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
             }`}
           >
             <Icon name="settings" />
@@ -301,25 +302,25 @@ const DistributorDashboard: React.FC = () => {
           </button>
         </nav>
         
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-gray-50 cursor-pointer transition-colors" onClick={handleLogout}>
+        <div className="p-4 border-t border-gray-700">
+          <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#0a0e1a]/50 cursor-pointer transition-colors" onClick={handleLogout}>
             <div className="size-10 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold">
               {user?.first_name?.[0]}{user?.last_name?.[0]}
             </div>
             <div className="flex flex-col overflow-hidden flex-1">
-              <p className="text-sm font-bold text-[#131018] truncate">{user?.first_name} {user?.last_name}</p>
-              <p className="text-xs text-[#6d5e8d] truncate">Distributor</p>
+              <p className="text-sm font-bold text-white truncate">{user?.first_name} {user?.last_name}</p>
+              <p className="text-xs text-gray-400 truncate">Distributor</p>
             </div>
-            <Icon name="logout" className="text-[#6d5e8d]" />
+            <Icon name="logout" className="text-gray-400" />
           </div>
         </div>
       </aside>
       
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden relative">
-        <header className="h-16 shrink-0 bg-white/80 backdrop-blur-md border-b border-gray-200 flex items-center justify-between px-8 z-10 sticky top-0">
+        <header className="h-16 shrink-0 bg-[#151923]/80 backdrop-blur-md border-b border-gray-700 flex items-center justify-between px-8 z-10 sticky top-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-[#131018]">
+            <h2 className="text-xl font-bold text-white">
               {activeTab === 'dashboard' && 'Dashboard Overview'}
               {activeTab === 'medicines' && 'Medicine Catalog'}
               {activeTab === 'manifests' && 'Lot Manifests'}
@@ -328,9 +329,9 @@ const DistributorDashboard: React.FC = () => {
           </div>
           <div className="flex items-center gap-4">
             <div className="relative hidden md:block">
-              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl" />
+              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xl" />
               <input
-                className="h-10 pl-10 pr-4 w-80 rounded-lg border-none bg-gray-100 text-sm focus:ring-2 focus:ring-primary/50 placeholder-gray-500"
+                className="h-10 pl-10 pr-4 w-80 rounded-lg border border-gray-700 bg-[#0a0e1a] text-white text-sm focus:ring-2 focus:ring-primary/50 focus:border-primary/50 placeholder-gray-500"
                 placeholder="Search..."
                 type="text"
                 value={searchQuery}
@@ -365,70 +366,286 @@ const DistributorDashboard: React.FC = () => {
               
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group">
+                <div className="bg-[#151923] p-5 rounded-2xl border border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group hover:border-primary/50 transition-all">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Icon name="medication" className="text-6xl text-primary" />
                   </div>
                   <div className="flex items-center gap-2 mb-1">
                     <Icon name="medication" className="text-primary text-xl" />
-                    <p className="text-sm font-semibold text-[#6d5e8d]">Medicines Registered</p>
+                    <p className="text-sm font-semibold text-gray-400">Medicines Registered</p>
                   </div>
                   <div>
-                    <p className="text-3xl font-extrabold text-[#131018]">{stats.totalMedicines}</p>
+                    <p className="text-3xl font-extrabold text-white">{stats.totalMedicines}</p>
                   </div>
                 </div>
                 
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group">
+                <div className="bg-[#151923] p-5 rounded-2xl border border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group hover:border-blue-500/50 transition-all">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Icon name="assignment" className="text-6xl text-blue-500" />
                   </div>
                   <div className="flex items-center gap-2 mb-1">
                     <Icon name="assignment" className="text-blue-500 text-xl" />
-                    <p className="text-sm font-semibold text-[#6d5e8d]">Manifests Created</p>
+                    <p className="text-sm font-semibold text-gray-400">Manifests Created</p>
                   </div>
                   <div>
-                    <p className="text-3xl font-extrabold text-[#131018]">{stats.totalManifests}</p>
+                    <p className="text-3xl font-extrabold text-white">{stats.totalManifests}</p>
                   </div>
                 </div>
                 
-                <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group">
+                <div className="bg-[#151923] p-5 rounded-2xl border border-gray-700 shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group hover:border-green-500/50 transition-all">
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                     <Icon name="verified" className="text-6xl text-green-500" />
                   </div>
                   <div className="flex items-center gap-2 mb-1">
                     <Icon name="verified" className="text-green-500 text-xl" />
-                    <p className="text-sm font-semibold text-[#6d5e8d]">Verifications</p>
+                    <p className="text-sm font-semibold text-gray-400">Verifications</p>
                   </div>
                   <div>
-                    <p className="text-3xl font-extrabold text-[#131018]">{stats.pendingVerifications}</p>
+                    <p className="text-3xl font-extrabold text-white">{stats.pendingVerifications}</p>
                   </div>
                 </div>
                 
-                <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group ${
-                  stats.entityStatus === 'registered' ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200'
+                <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 relative overflow-hidden group transition-all ${
+                  stats.entityStatus === 'registered' ? 'bg-green-500/10 border-green-500/30 hover:border-green-500/50' : 'bg-gray-800 border-gray-700 hover:border-gray-600'
                 }`}>
                   <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                    <Icon name="business" className={`text-6xl ${stats.entityStatus === 'registered' ? 'text-green-600' : 'text-gray-400'}`} />
+                    <Icon name="business" className={`text-6xl ${stats.entityStatus === 'registered' ? 'text-green-400' : 'text-gray-600'}`} />
                   </div>
                   <div className="flex items-center gap-2 mb-1">
-                    <Icon name="business" className={`text-xl ${stats.entityStatus === 'registered' ? 'text-green-600' : 'text-gray-400'}`} />
-                    <p className="text-sm font-semibold text-[#6d5e8d]">Entity Status</p>
+                    <Icon name="business" className={`text-xl ${stats.entityStatus === 'registered' ? 'text-green-400' : 'text-gray-500'}`} />
+                    <p className="text-sm font-semibold text-gray-400">Entity Status</p>
                   </div>
                   <div>
-                    <p className={`text-lg font-extrabold ${stats.entityStatus === 'registered' ? 'text-green-600' : 'text-gray-600'}`}>
+                    <p className={`text-lg font-extrabold ${stats.entityStatus === 'registered' ? 'text-green-400' : 'text-gray-500'}`}>
                       {stats.entityStatus === 'registered' ? '✓ Registered' : 'Not Registered'}
                     </p>
                   </div>
                 </div>
               </div>
               
-              {/* Recent Activity */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="text-lg font-bold text-[#131018] mb-4">Recent Activity</h3>
-                <div className="text-center py-12 text-[#6d5e8d]">
-                  <Icon name="history" className="text-6xl opacity-30" />
-                  <p className="mt-4">No recent activity</p>
+              {/* QR Codes Gallery */}
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Icon name="qr_code_2" className="text-primary" />
+                    Recent QR Codes
+                  </h3>
+                  {manifests.length > 0 && (
+                    <button
+                      onClick={() => setActiveTab('manifests')}
+                      className="text-sm text-primary hover:text-primary/80 font-medium"
+                    >
+                      View All
+                    </button>
+                  )}
                 </div>
+                
+                {manifests.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Icon name="qr_code_2" className="text-5xl opacity-30" />
+                    <p className="mt-3 text-sm">No QR codes generated yet</p>
+                    <p className="text-xs mt-1 text-gray-500">Create a manifest to generate QR codes</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {manifests.slice(0, 4).map((manifest) => (
+                      <div 
+                        key={manifest.id} 
+                        className="bg-[#0a0e1a] border border-gray-700 rounded-xl p-4 hover:border-primary/50 transition-all cursor-pointer group"
+                        onClick={() => navigate(`/distributor/qr-codes/${manifest.id}`)}
+                      >
+                        <div className="bg-white rounded-lg p-3 mb-3 flex items-center justify-center">
+                          <QRCodeSVG
+                            value={manifest.id}
+                            size={80}
+                            level="M"
+                            className="group-hover:scale-105 transition-transform"
+                          />
+                        </div>
+                        <p className="text-xs font-mono font-bold text-white truncate mb-1">
+                          {manifest.batch_number}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 border border-green-500/30 font-bold">
+                            {manifest.trust_score}%
+                          </span>
+                          <Icon name="arrow_forward" className="text-primary text-sm opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Data Visualizations Row */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Trust Score Distribution */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Icon name="analytics" className="text-blue-400" />
+                    Trust Score Overview
+                  </h3>
+                  {manifests.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <Icon name="bar_chart" className="text-4xl opacity-30" />
+                      <p className="mt-2 text-sm">No data available</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {(() => {
+                        const avgScore = manifests.reduce((sum, m) => sum + parseFloat(m.trust_score), 0) / manifests.length;
+                        const scoreColor = avgScore >= 90 ? 'bg-green-500' : avgScore >= 70 ? 'bg-yellow-500' : 'bg-red-500';
+                        const scoreBgColor = avgScore >= 90 ? 'bg-green-500/10 border border-green-500/30' : avgScore >= 70 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-red-500/10 border border-red-500/30';
+                        const scoreTextColor = avgScore >= 90 ? 'text-green-400' : avgScore >= 70 ? 'text-yellow-400' : 'text-red-400';
+                        
+                        return (
+                          <>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-sm font-medium text-gray-400">Average Trust Score</span>
+                              <span className={`text-2xl font-black ${scoreTextColor}`}>{avgScore.toFixed(1)}%</span>
+                            </div>
+                            <div className="relative h-8 bg-gray-800 rounded-full overflow-hidden">
+                              <div 
+                                className={`absolute inset-y-0 left-0 ${scoreColor} rounded-full transition-all duration-500`}
+                                style={{ width: `${avgScore}%` }}
+                              >
+                                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-4 mt-4">
+                              <div className={`${avgScore >= 90 ? scoreBgColor : 'bg-green-500/10 border border-green-500/30'} rounded-lg p-3 text-center`}>
+                                <Icon name="verified" className="text-green-400" />
+                                <p className="text-2xl font-bold text-green-400 mt-1">{manifests.filter(m => parseFloat(m.trust_score) >= 90).length}</p>
+                                <p className="text-xs text-gray-500 mt-1">High Trust</p>
+                              </div>
+                              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-center">
+                                <Icon name="warning" className="text-yellow-400" />
+                                <p className="text-2xl font-bold text-yellow-400 mt-1">{manifests.filter(m => parseFloat(m.trust_score) >= 70 && parseFloat(m.trust_score) < 90).length}</p>
+                                <p className="text-xs text-gray-500 mt-1">Medium</p>
+                              </div>
+                              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-center">
+                                <Icon name="error" className="text-red-400" />
+                                <p className="text-2xl font-bold text-red-400 mt-1">{manifests.filter(m => parseFloat(m.trust_score) < 70).length}</p>
+                                <p className="text-xs text-gray-500 mt-1">Low Trust</p>
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Medicines by Category */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-6">
+                  <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <Icon name="pie_chart" className="text-purple-400" />
+                    Medicines by Category
+                  </h3>
+                  {medicines.length === 0 ? (
+                    <div className="text-center py-8 text-gray-400">
+                      <Icon name="category" className="text-4xl opacity-30" />
+                      <p className="mt-2 text-sm">No medicines registered</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {(() => {
+                        const categoryCounts = medicines.reduce((acc, med) => {
+                          acc[med.category] = (acc[med.category] || 0) + 1;
+                          return acc;
+                        }, {} as Record<string, number>);
+                        
+                        const sortedCategories = Object.entries(categoryCounts)
+                          .sort(([, a], [, b]) => b - a)
+                          .slice(0, 5);
+                        
+                        const maxCount = Math.max(...sortedCategories.map(([, count]) => count));
+                        const colors = ['bg-purple-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-pink-500'];
+                        
+                        return sortedCategories.map(([category, count], index) => (
+                          <div key={category} className="space-y-1">
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="font-medium text-white truncate">{category}</span>
+                              <span className="text-gray-400 font-bold ml-2">{count}</span>
+                            </div>
+                            <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden">
+                              <div 
+                                className={`absolute inset-y-0 left-0 ${colors[index % colors.length]} rounded-full transition-all duration-500`}
+                                style={{ width: `${(count / maxCount) * 100}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Icon name="history" className="text-cyan-400" />
+                  Recent Activity
+                </h3>
+                {medicines.length === 0 && manifests.length === 0 ? (
+                  <div className="text-center py-8 text-gray-400">
+                    <Icon name="history" className="text-5xl opacity-30" />
+                    <p className="mt-3">No recent activity</p>
+                    <p className="text-sm mt-1 text-gray-500">Start by creating medicines and manifests</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {(() => {
+                      // Combine and sort activities
+                      const activities = [
+                        ...manifests.slice(0, 4).map(m => ({
+                          type: 'manifest' as const,
+                          id: m.id,
+                          title: `Created manifest for batch ${m.batch_number}`,
+                          subtitle: `Trust Score: ${m.trust_score}%`,
+                          icon: 'assignment' as const,
+                          color: 'text-blue-400',
+                          bgColor: 'bg-blue-500/10 border border-blue-500/30'
+                        })),
+                        ...medicines.slice(0, 4).map(m => ({
+                          type: 'medicine' as const,
+                          id: m.id,
+                          title: `Registered medicine: ${m.name}`,
+                          subtitle: `${m.active_ingredient} - ${m.strength}`,
+                          icon: 'medication' as const,
+                          color: 'text-primary',
+                          bgColor: 'bg-primary/10 border border-primary/30'
+                        }))
+                      ].slice(0, 6);
+                      
+                      return activities.map((activity) => (
+                        <div 
+                          key={`${activity.type}-${activity.id}`}
+                          className="flex items-start gap-4 p-4 rounded-xl hover:bg-[#0a0e1a]/50 transition-colors group"
+                        >
+                          <div className={`size-10 rounded-lg ${activity.bgColor} flex items-center justify-center shrink-0`}>
+                            <Icon name={activity.icon} className={`${activity.color} text-xl`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-bold text-white text-sm">{activity.title}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{activity.subtitle}</p>
+                          </div>
+                          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {activity.type === 'manifest' && (
+                              <button
+                                onClick={() => navigate(`/distributor/qr-codes/${activity.id}`)}
+                                className="px-3 py-1.5 text-xs bg-primary text-white rounded-lg hover:bg-primary/90 font-bold"
+                              >
+                                View QR
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -437,7 +654,7 @@ const DistributorDashboard: React.FC = () => {
           {activeTab === 'medicines' && (
             <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-[#131018]">Medicine Catalog</h3>
+                <h3 className="text-lg font-bold text-white">Medicine Catalog</h3>
                 <button
                   onClick={() => setShowMedicineForm(true)}
                   disabled={!distributorEntity}
@@ -449,30 +666,30 @@ const DistributorDashboard: React.FC = () => {
               </div>
               
               {medicines.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
-                  <Icon name="medication" className="text-6xl text-gray-300" />
-                  <p className="mt-4 text-[#6d5e8d]">No medicines registered yet</p>
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-12 text-center">
+                  <Icon name="medication" className="text-6xl text-gray-600" />
+                  <p className="mt-4 text-gray-400">No medicines registered yet</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-[#0a0e1a] border-b border-gray-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Active Ingredient</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Strength</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Form</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Category</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Name</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Active Ingredient</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Strength</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Form</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Category</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-700">
                       {medicines.map((medicine) => (
-                        <tr key={medicine.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm font-bold text-[#131018]">{medicine.name}</td>
-                          <td className="px-6 py-4 text-sm text-[#6d5e8d]">{medicine.active_ingredient}</td>
-                          <td className="px-6 py-4 text-sm text-[#6d5e8d]">{medicine.strength}</td>
-                          <td className="px-6 py-4 text-sm text-[#6d5e8d]">{medicine.dosage_form}</td>
-                          <td className="px-6 py-4 text-sm text-[#6d5e8d]">{medicine.category}</td>
+                        <tr key={medicine.id} className="hover:bg-[#0a0e1a]/50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-bold text-white">{medicine.name}</td>
+                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.active_ingredient}</td>
+                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.strength}</td>
+                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.dosage_form}</td>
+                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.category}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -486,7 +703,7 @@ const DistributorDashboard: React.FC = () => {
           {activeTab === 'manifests' && (
             <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-[#131018]">Lot Manifests</h3>
+                <h3 className="text-lg font-bold text-white">Lot Manifests</h3>
                 <button
                   onClick={() => setShowManifestForm(true)}
                   disabled={!distributorEntity || medicines.length === 0}
@@ -498,37 +715,37 @@ const DistributorDashboard: React.FC = () => {
               </div>
               
               {manifests.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-12 text-center">
-                  <Icon name="assignment" className="text-6xl text-gray-300" />
-                  <p className="mt-4 text-[#6d5e8d]">No manifests created yet</p>
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-12 text-center">
+                  <Icon name="assignment" className="text-6xl text-gray-600" />
+                  <p className="mt-4 text-gray-400">No manifests created yet</p>
                 </div>
               ) : (
-                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead className="bg-[#0a0e1a] border-b border-gray-700">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Batch Number</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Expiry Date</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Trust Score</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Signature</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-[#6d5e8d] uppercase">Actions</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Batch Number</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Expiry Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Trust Score</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Signature</th>
+                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-100">
+                    <tbody className="divide-y divide-gray-700">
                       {manifests.map((manifest) => (
-                        <tr key={manifest.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 text-sm font-mono font-bold text-[#131018]">{manifest.batch_number}</td>
-                          <td className="px-6 py-4 text-sm text-[#6d5e8d]">{manifest.expiry_date}</td>
+                        <tr key={manifest.id} className="hover:bg-[#0a0e1a]/50 transition-colors">
+                          <td className="px-6 py-4 text-sm font-mono font-bold text-white">{manifest.batch_number}</td>
+                          <td className="px-6 py-4 text-sm text-gray-400">{manifest.expiry_date}</td>
                           <td className="px-6 py-4 text-sm">
-                            <span className="px-2 py-1 rounded-full bg-green-100 text-green-700 font-bold text-xs">
+                            <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30 font-bold text-xs">
                               {manifest.trust_score}%
                             </span>
                           </td>
-                          <td className="px-6 py-4 text-sm font-mono text-[#6d5e8d]">{manifest.digital_signature.substring(0, 16)}...</td>
+                          <td className="px-6 py-4 text-sm font-mono text-gray-400">{manifest.digital_signature.substring(0, 16)}...</td>
                           <td className="px-6 py-4 text-sm">
                             <button
                               onClick={() => navigate(`/distributor/qr-codes/${manifest.id}`)}
-                              className="text-primary hover:underline font-bold"
+                              className="text-primary hover:text-primary/80 font-bold"
                             >
                               Generate QR
                             </button>
@@ -545,9 +762,166 @@ const DistributorDashboard: React.FC = () => {
           {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6">
-                <h3 className="text-lg font-bold text-[#131018] mb-4">Account Settings</h3>
-                <p className="text-[#6d5e8d]">Settings coming soon...</p>
+              {/* User Profile Card */}
+              <div className="bg-gradient-to-br from-[#0a0e1a] to-[#151923] rounded-2xl border border-gray-700 shadow-2xl overflow-hidden">
+                {/* Header with gradient */}
+                <div className="h-32 bg-gradient-to-r from-purple-600 via-blue-600 to-cyan-600 relative">
+                  <div className="absolute inset-0 bg-black/20"></div>
+                  <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-[#0a0e1a] to-transparent"></div>
+                </div>
+                
+                {/* Profile Content */}
+                <div className="px-8 pb-8 -mt-16 relative z-10">
+                  <div className="flex flex-col md:flex-row items-center md:items-end gap-6 mb-8">
+                    {/* Avatar */}
+                    <div className="size-32 rounded-2xl bg-gradient-to-br from-purple-500 via-blue-500 to-cyan-500 flex items-center justify-center text-white font-black text-5xl shadow-2xl shadow-purple-500/30 ring-4 ring-[#0a0e1a] group-hover:scale-105 transition-transform">
+                      {user?.first_name?.[0]}{user?.last_name?.[0]}
+                    </div>
+                    
+                    {/* User Info */}
+                    <div className="flex-1 text-center md:text-left">
+                      <h2 className="text-3xl font-black text-white mb-1">
+                        {user?.first_name} {user?.last_name}
+                      </h2>
+                      <p className="text-gray-400 text-lg mb-2">@{user?.username}</p>
+                      <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary/20 border border-primary/30">
+                        <Icon name="local_shipping" className="text-primary" />
+                        <span className="text-primary font-bold text-sm">{user?.role}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* User Details Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Email Card */}
+                    <div className="bg-[#151923] border border-gray-700 rounded-xl p-5 hover:border-blue-500/50 transition-all group">
+                      <div className="flex items-start gap-4">
+                        <div className="size-12 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0 group-hover:bg-blue-500/20 transition-colors">
+                          <Icon name="email" className="text-blue-400 text-2xl" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-400 text-sm font-medium mb-1">Email Address</p>
+                          <p className="text-white font-bold truncate">{user?.email}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Username Card */}
+                    <div className="bg-[#151923] border border-gray-700 rounded-xl p-5 hover:border-purple-500/50 transition-all group">
+                      <div className="flex items-start gap-4">
+                        <div className="size-12 rounded-lg bg-purple-500/10 flex items-center justify-center shrink-0 group-hover:bg-purple-500/20 transition-colors">
+                          <Icon name="person" className="text-purple-400 text-2xl" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-400 text-sm font-medium mb-1">Username</p>
+                          <p className="text-white font-bold truncate">@{user?.username}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* User ID Card */}
+                    <div className="bg-[#151923] border border-gray-700 rounded-xl p-5 hover:border-cyan-500/50 transition-all group">
+                      <div className="flex items-start gap-4">
+                        <div className="size-12 rounded-lg bg-cyan-500/10 flex items-center justify-center shrink-0 group-hover:bg-cyan-500/20 transition-colors">
+                          <Icon name="badge" className="text-cyan-400 text-2xl" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-400 text-sm font-medium mb-1">User ID</p>
+                          <p className="text-white font-mono text-sm truncate">{user?.id}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Role Card */}
+                    <div className="bg-[#151923] border border-gray-700 rounded-xl p-5 hover:border-green-500/50 transition-all group">
+                      <div className="flex items-start gap-4">
+                        <div className="size-12 rounded-lg bg-green-500/10 flex items-center justify-center shrink-0 group-hover:bg-green-500/20 transition-colors">
+                          <Icon name="shield" className="text-green-400 text-2xl" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-400 text-sm font-medium mb-1">Account Role</p>
+                          <p className="text-white font-bold">{user?.role}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Entity Information */}
+                  {distributorEntity && (
+                    <div className="mt-6 bg-[#151923] border border-gray-700 rounded-xl p-5">
+                      <div className="flex items-center gap-3 mb-4">
+                        <Icon name="business" className="text-yellow-400 text-2xl" />
+                        <h3 className="text-xl font-bold text-white">Distributor Entity</h3>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-gray-400 text-sm font-medium mb-1">Company Name</p>
+                          <p className="text-white font-bold">{distributorEntity.name}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 text-sm font-medium mb-1">Entity ID</p>
+                          <p className="text-white font-mono text-sm truncate">{distributorEntity.id}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 text-sm font-medium mb-1">Verification Status</p>
+                          <div className="flex items-center gap-2">
+                            <Icon 
+                              name={distributorEntity.is_verified_regulator ? "verified" : "pending"} 
+                              className={distributorEntity.is_verified_regulator ? "text-green-400" : "text-yellow-400"} 
+                            />
+                            <p className={`font-bold ${distributorEntity.is_verified_regulator ? "text-green-400" : "text-yellow-400"}`}>
+                              {distributorEntity.is_verified_regulator ? "Verified" : "Pending Verification"}
+                            </p>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-gray-400 text-sm font-medium mb-1">Public Key</p>
+                          <p className="text-white font-mono text-xs truncate">{distributorEntity.public_key?.substring(0, 32)}...</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Security Notice */}
+                  <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
+                    <Icon name="security" className="text-blue-400 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="text-blue-300 font-medium">Secure JWT Authentication</p>
+                      <p className="text-gray-400 mt-1">Your session is protected with industry-standard JWT tokens and Ed25519 cryptographic signatures.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Additional Settings */}
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm p-6">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                  <Icon name="settings" className="text-primary" />
+                  Account Settings
+                </h3>
+                <div className="space-y-3">
+                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-[#0a0e1a]/50 transition-colors flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <Icon name="lock" className="text-gray-400 group-hover:text-primary transition-colors" />
+                      <span className="font-medium text-white">Change Password</span>
+                    </div>
+                    <Icon name="chevron_right" className="text-gray-400" />
+                  </button>
+                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-[#0a0e1a]/50 transition-colors flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <Icon name="notifications" className="text-gray-400 group-hover:text-primary transition-colors" />
+                      <span className="font-medium text-white">Notification Preferences</span>
+                    </div>
+                    <Icon name="chevron_right" className="text-gray-400" />
+                  </button>
+                  <button className="w-full text-left px-4 py-3 rounded-lg hover:bg-[#0a0e1a]/50 transition-colors flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <Icon name="key" className="text-gray-400 group-hover:text-primary transition-colors" />
+                      <span className="font-medium text-white">API Keys</span>
+                    </div>
+                    <Icon name="chevron_right" className="text-gray-400" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -556,35 +930,35 @@ const DistributorDashboard: React.FC = () => {
       
       {/* Entity Registration Modal */}
       {showEntityForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-[#131018] mb-4">Register Distributor Entity</h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Register Distributor Entity</h3>
             <form onSubmit={handleCreateEntity} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-[#131018] mb-1">Company Name</label>
+                <label className="block text-sm font-bold text-gray-300 mb-1">Company Name</label>
                 <input
                   type="text"
                   required
                   value={entityFormData.name}
                   onChange={(e) => setEntityFormData({ ...entityFormData, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-[#131018] mb-1">License Number</label>
+                <label className="block text-sm font-bold text-gray-300 mb-1">License Number</label>
                 <input
                   type="text"
                   required
                   value={entityFormData.license_number}
                   onChange={(e) => setEntityFormData({ ...entityFormData, license_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                 />
               </div>
               <div className="flex gap-3 justify-end pt-4">
                 <button
                   type="button"
                   onClick={() => setShowEntityForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-sm"
+                  className="px-4 py-2 border border-gray-700 bg-[#0a0e1a] text-gray-300 rounded-lg hover:bg-gray-800 font-bold text-sm transition-colors"
                 >
                   Cancel
                 </button>
@@ -602,49 +976,49 @@ const DistributorDashboard: React.FC = () => {
       
       {/* Medicine Form Modal */}
       {showMedicineForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl p-6 max-w-2xl w-full my-8">
-            <h3 className="text-xl font-bold text-[#131018] mb-4">Add New Medicine</h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-2xl w-full my-8 shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Add New Medicine</h3>
             <form onSubmit={handleCreateMedicine} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
-                  <label className="block text-sm font-bold text-[#131018] mb-1">Medicine Name</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Medicine Name</label>
                   <input
                     type="text"
                     required
               value={medicineFormData.name}
                     onChange={(e) => setMedicineFormData({ ...medicineFormData, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                    className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-[#131018] mb-1">Active Ingredient</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Active Ingredient</label>
                   <input
                     type="text"
                     required
                     value={medicineFormData.active_ingredient}
                     onChange={(e) => setMedicineFormData({ ...medicineFormData, active_ingredient: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                    className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-[#131018] mb-1">Strength</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Strength</label>
                   <input
                     type="text"
                     required
                     value={medicineFormData.strength}
                     onChange={(e) => setMedicineFormData({ ...medicineFormData, strength: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                    className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                     placeholder="e.g., 500mg"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-[#131018] mb-1">Dosage Form</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Dosage Form</label>
                   <select
                     required
                     value={medicineFormData.dosage_form}
                     onChange={(e) => setMedicineFormData({ ...medicineFormData, dosage_form: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                    className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                   >
                     <option value="">Select form</option>
                     <option value="Tablet">Tablet</option>
@@ -655,24 +1029,24 @@ const DistributorDashboard: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-bold text-[#131018] mb-1">Category</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Category</label>
                   <input
                     type="text"
                     required
                     value={medicineFormData.category}
                     onChange={(e) => setMedicineFormData({ ...medicineFormData, category: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                    className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                     placeholder="e.g., Analgesic"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="block text-sm font-bold text-[#131018] mb-1">Manufacturer</label>
+                  <label className="block text-sm font-bold text-gray-300 mb-1">Manufacturer</label>
                   <input
                     type="text"
                     required
                     value={medicineFormData.manufacturer_name}
                     onChange={(e) => setMedicineFormData({ ...medicineFormData, manufacturer_name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                    className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                   />
                 </div>
               </div>
@@ -680,7 +1054,7 @@ const DistributorDashboard: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowMedicineForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-sm"
+                  className="px-4 py-2 border border-gray-700 bg-[#0a0e1a] text-gray-300 rounded-lg hover:bg-gray-800 font-bold text-sm transition-colors"
                 >
                   Cancel
                 </button>
@@ -698,17 +1072,17 @@ const DistributorDashboard: React.FC = () => {
       
       {/* Manifest Form Modal */}
       {showManifestForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-xl font-bold text-[#131018] mb-4">Create Lot Manifest</h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <h3 className="text-xl font-bold text-white mb-4">Create Lot Manifest</h3>
             <form onSubmit={handleCreateManifest} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-[#131018] mb-1">Medicine</label>
+                <label className="block text-sm font-bold text-gray-300 mb-1">Medicine</label>
                 <select
                   required
                   value={manifestFormData.medicine}
                   onChange={(e) => setManifestFormData({ ...manifestFormData, medicine: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                 >
                   <option value="">Select medicine</option>
                   {medicines.map((medicine) => (
@@ -717,31 +1091,31 @@ const DistributorDashboard: React.FC = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-bold text-[#131018] mb-1">Batch Number</label>
+                <label className="block text-sm font-bold text-gray-300 mb-1">Batch Number</label>
                 <input
                   type="text"
                   required
                   value={manifestFormData.batch_number}
                   onChange={(e) => setManifestFormData({ ...manifestFormData, batch_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                   placeholder="e.g., BATCH-2026-001"
                 />
               </div>
               <div>
-                <label className="block text-sm font-bold text-[#131018] mb-1">Expiry Date</label>
+                <label className="block text-sm font-bold text-gray-300 mb-1">Expiry Date</label>
                 <input
                   type="date"
                   required
                   value={manifestFormData.expiry_date}
                   onChange={(e) => setManifestFormData({ ...manifestFormData, expiry_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50"
+                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                 />
               </div>
               <div className="flex gap-3 justify-end pt-4">
                 <button
                   type="button"
                   onClick={() => setShowManifestForm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-sm"
+                  className="px-4 py-2 border border-gray-700 bg-[#0a0e1a] text-gray-300 rounded-lg hover:bg-gray-800 font-bold text-sm transition-colors"
                 >
                   Cancel
                 </button>
@@ -759,18 +1133,18 @@ const DistributorDashboard: React.FC = () => {
       
       {/* Private Key Modal */}
       {showKeyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-2xl w-full">
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-2xl w-full shadow-2xl">
             <div className="flex items-center gap-3 mb-4">
-              <Icon name="warning" className="text-yellow-600 text-3xl" />
-              <h3 className="text-xl font-bold text-[#131018]">Save Your Private Key</h3>
+              <Icon name="warning" className="text-yellow-400 text-3xl" />
+              <h3 className="text-xl font-bold text-white">Save Your Private Key</h3>
             </div>
-            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
-              <p className="text-yellow-900 font-bold text-sm">⚠️ Important: This key will only be shown once!</p>
-              <p className="text-yellow-700 text-sm mt-1">Save it securely. You'll need it to sign lot manifests. We cannot recover it if lost.</p>
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-4">
+              <p className="text-yellow-300 font-bold text-sm">⚠️ Important: This key will only be shown once!</p>
+              <p className="text-yellow-200/80 text-sm mt-1">Save it securely. You'll need it to sign lot manifests. We cannot recover it if lost.</p>
             </div>
             <div className="relative">
-              <div className="bg-gray-900 p-4 rounded-lg mb-4 group">
+              <div className="bg-[#0a0e1a] border border-gray-700 p-4 rounded-lg mb-4 group">
                 <pre className="text-green-400 font-mono text-xs break-all blur-sm hover:blur-none transition-all duration-300 select-all">{privateKey}</pre>
                 <p className="text-gray-500 text-xs text-center mt-2 group-hover:hidden">Hover to reveal</p>
               </div>
@@ -778,14 +1152,14 @@ const DistributorDashboard: React.FC = () => {
             <div className="flex gap-3 justify-end">
               <button
                 onClick={copyPrivateKey}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-sm flex items-center gap-2"
+                className="px-4 py-2 border border-gray-700 bg-[#0a0e1a] text-gray-300 rounded-lg hover:bg-gray-800 font-bold text-sm flex items-center gap-2 transition-colors"
               >
                 <Icon name="content_copy" />
                 Copy
               </button>
               <button
                 onClick={downloadPrivateKey}
-                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 font-bold text-sm flex items-center gap-2"
+                className="px-4 py-2 border border-gray-700 bg-[#0a0e1a] text-gray-300 rounded-lg hover:bg-gray-800 font-bold text-sm flex items-center gap-2 transition-colors"
               >
                 <Icon name="download" />
                 Download

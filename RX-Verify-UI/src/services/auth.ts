@@ -97,6 +97,11 @@ export const authService = {
         const user = this.getCurrentUser();
         return user?.role || null;
     },
+
+    async getCurrentUserProfile(): Promise<User> {
+        const response = await api.get('/users/me/');
+        return response.data;
+    },
 };
 
 export default authService;
