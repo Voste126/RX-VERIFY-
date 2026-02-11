@@ -243,7 +243,29 @@ const DistributorDashboard: React.FC = () => {
       await loadMedicines(distributorEntity.id);
     } catch (error: any) {
       console.error('Error creating medicine:', error);
-      alert(error.response?.data?.message || 'Failed to create medicine');
+      
+      // Parse validation errors from backend
+      const errorData = error.response?.data;
+      let errorMessage = 'Failed to create medicine';
+      
+      if (errorData && typeof errorData === 'object') {
+        // Handle field-specific validation errors
+        const errors = [];
+        for (const [field, messages] of Object.entries(errorData)) {
+          if (Array.isArray(messages)) {
+            errors.push(`${field}: ${messages.join(', ')}`);
+          } else if (typeof messages === 'string') {
+            errors.push(`${field}: ${messages}`);
+          }
+        }
+        if (errors.length > 0) {
+          errorMessage = errors.join('\n');
+        }
+      } else if (errorData?.message) {
+        errorMessage = errorData.message;
+      }
+      
+      alert(`❌ ${errorMessage}`);
     }
   };
   
@@ -256,20 +278,55 @@ const DistributorDashboard: React.FC = () => {
     
     try {
       // Add distributor ID to the payload
-      await distributorService.createLotManifest({
+      const newManifest = await distributorService.createLotManifest({
         ...manifestFormData,
         distributor: distributorEntity.id  // Add distributor ID
       });
+      
+      // Reset form and close modal
       setShowManifestForm(false);
       setManifestFormData({
         medicine: '',
         batch_number: '',
         expiry_date: ''
       });
+      
+      // Reload manifests to show the new one
       await loadManifests(distributorEntity.id);
+      
+      // Success message
+      alert(`✅ Manifest created successfully!\nBatch: ${newManifest.batch_number}\nTrust Score: ${newManifest.trust_score}%`);
     } catch (error: any) {
       console.error('Error creating manifest:', error);
-      alert(error.response?.data?.message || 'Failed to create manifest');
+      
+      // Parse validation errors from backend
+      const errorData = error.response?.data;
+      let errorMessage = 'Failed to create manifest';
+      
+      if (errorData && typeof errorData === 'object') {
+        // Handle field-specific validation errors
+        const errors = [];
+        for (const [field, messages] of Object.entries(errorData)) {
+          if (Array.isArray(messages)) {
+            const fieldName = field.replace('_', ' ');
+            errors.push(`${fieldName}: ${messages.join(', ')}`);
+          } else if (typeof messages === 'string') {
+            errors.push(`${field}: ${messages}`);
+          }
+        }
+        if (errors.length > 0) {
+          errorMessage = errors.join('\n');
+        }
+        
+        // Special handling for duplicate batch number
+        if (errorData.batch_number && errorData.batch_number[0]?.includes('already exists')) {
+          errorMessage = `⚠️ Batch number "${manifestFormData.batch_number}" already exists.\n\nPlease use a different batch number or check the Manifests tab to view the existing manifest.`;
+        }
+      } else if (errorData?.message) {
+        errorMessage = errorData.message;
+      }
+      
+      alert(`❌ ${errorMessage}`);
     }
   };
   
