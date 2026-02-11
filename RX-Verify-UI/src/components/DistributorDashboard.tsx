@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2, Package, Truck } from 'lucide-react';
 import Icon from './Icon';
+import ErrorModal from './ErrorModal';
 import { distributorService, type Medicine, type LotManifest, type DistributorEntity } from '../services/distributor';
 import { authService } from '../services/auth';
 import { getDistributorOrders, fulfillOrder, type SupplyOrder, type FulfillOrderRequest } from '../services/orders';
@@ -48,6 +49,27 @@ const DistributorDashboard: React.FC = () => {
   const [showFulfillModal, setShowFulfillModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<SupplyOrder | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Modal state
+  const [modal, setModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'error' | 'success' | 'warning' | 'info';
+  }>({  
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info'
+  });
+  
+  const showModal = (title: string, message: string, type: 'error' | 'success' | 'warning' | 'info' = 'info') => {
+    setModal({ isOpen: true, title, message, type });
+  };
+  
+  const closeModal = () => {
+    setModal(prev => ({ ...prev, isOpen: false }));
+  };
   
   const [entityFormData, setEntityFormData] = useState({ name: '', license_number: '' });
   const [medicineFormData, setMedicineFormData] = useState({
@@ -180,10 +202,19 @@ const DistributorDashboard: React.FC = () => {
         expiry_date: ''
       });
       
-      alert(`✅ ${response.message}\n\nBatch: ${response.batch_number}\nTrust Score: ${response.trust_score}`);
+      
+      showModal(
+        'Order Fulfilled Successfully',
+        `Batch: ${response.batch_number}\nTrust Score: ${response.trust_score}`,
+        'success'
+      );
     } catch (error: any) {
       console.error('Error fulfilling order:', error);
-      alert(error.response?.data?.error || 'Failed to fulfill order');
+      showModal(
+        'Order Fulfillment Failed',
+        error.response?.data?.error || 'Failed to fulfill order',
+        'error'
+      );
     } finally {
       setSubmitting(false);
     }
@@ -215,14 +246,22 @@ const DistributorDashboard: React.FC = () => {
       setStats(prev => ({ ...prev, entityStatus: 'registered' }));
     } catch (error: any) {
       console.error('Error creating entity:', error);
-      alert(error.response?.data?.message || 'Failed to create entity');
+      showModal(
+        'Entity Creation Failed',
+        error.response?.data?.message || 'Failed to create entity',
+        'error'
+      );
     }
   };
   
   const handleCreateMedicine = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!distributorEntity) {
-      alert('Please register your entity first');
+      showModal(
+        'Entity Required',
+        'Please register your distributor entity first before creating medicines.',
+        'warning'
+      );
       return;
     }
     
@@ -265,14 +304,18 @@ const DistributorDashboard: React.FC = () => {
         errorMessage = errorData.message;
       }
       
-      alert(`❌ ${errorMessage}`);
+      showModal('Medicine Creation Failed', errorMessage, 'error');
     }
   };
   
   const handleCreateManifest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!distributorEntity) {
-      alert('Please register your entity first');
+      showModal(
+        'Entity Required',
+        'Please register your distributor entity first before creating manifests.',
+        'warning'
+      );
       return;
     }
     
@@ -295,7 +338,11 @@ const DistributorDashboard: React.FC = () => {
       await loadManifests(distributorEntity.id);
       
       // Success message
-      alert(`✅ Manifest created successfully!\nBatch: ${newManifest.batch_number}\nTrust Score: ${newManifest.trust_score}%`);
+      showModal(
+        'Manifest Created Successfully',
+        `Batch: ${newManifest.batch_number}\nTrust Score: ${newManifest.trust_score}%`,
+        'success'
+      );
     } catch (error: any) {
       console.error('Error creating manifest:', error);
       
@@ -326,7 +373,7 @@ const DistributorDashboard: React.FC = () => {
         errorMessage = errorData.message;
       }
       
-      alert(`❌ ${errorMessage}`);
+      showModal('Manifest Creation Failed', errorMessage, 'error');
     }
   };
   
@@ -347,7 +394,7 @@ const DistributorDashboard: React.FC = () => {
   
   const copyPrivateKey = () => {
     navigator.clipboard.writeText(privateKey);
-    alert('Private key copied to clipboard!');
+    showModal('Copied!', 'Private key copied to clipboard successfully.', 'success');
   };
   
   const closeKeyModal = () => {
@@ -1549,8 +1596,16 @@ const DistributorDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      
+      {/* Error/Success Modal */}
+      <ErrorModal
+        isOpen={modal.isOpen}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+        onClose={closeModal}
+      />
     </div>
   );
 };
-
 export default DistributorDashboard;
