@@ -51,6 +51,16 @@ export interface FulfillOrderResponse {
     order_status: string;
 }
 
+export interface ManifestDetails {
+    manifest_id: string;
+    batch_number: string;
+    expiry_date: string;
+    digital_signature: string;
+    qr_code_content: string;
+    trust_score: string;
+    medicine_name: string;
+}
+
 export interface VerifyReceiptRequest {
     scanned_uuid: string;
 }
@@ -120,6 +130,14 @@ export const fulfillOrder = async (
         `/orders/${orderId}/fulfill/`,
         data
     );
+    return response.data;
+};
+
+/**
+ * Get manifest details for an order (pharmacist - Digital Bill of Lading)
+ */
+export const getOrderManifest = async (orderId: string): Promise<ManifestDetails> => {
+    const response = await api.get<ManifestDetails>(`/orders/${orderId}/manifest_details/`);
     return response.data;
 };
 

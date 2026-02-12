@@ -127,6 +127,32 @@ class FulfillOrderSerializer(serializers.Serializer):
 
 
 class VerifyReceiptSerializer(serializers.Serializer):
-    """Serializer for receipt verification input."""
+    """Serializer for pharmacist receipt verification."""
     
-    scanned_uuid = serializers.UUIDField()
+    manifest_uuid = serializers.UUIDField(
+        required=True,
+        help_text="UUID from the QR code on the physical package"
+    )
+    
+    def validate_manifest_uuid(self, value):
+        """Ensure manifest exists."""
+        if not LotManifest.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Manifest not found")
+        return value
+
+
+class ManifestDetailsSerializer(serializers.Serializer):
+    """
+    Serializer for Digital Bill of Lading (secure manifest details).
+    
+    Returns sensitive manifest information to pharmacists for verifying
+    physical shipments against digital records.
+    """
+    
+    manifest_id = serializers.UUIDField(read_only=True)
+    batch_number = serializers.CharField(read_only=True)
+    expiry_date = serializers.DateField(read_only=True)
+    digital_signature = serializers.CharField(read_only=True)
+    qr_code_content = serializers.CharField(read_only=True)
+    trust_score = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    medicine_name = serializers.CharField(read_only=True)

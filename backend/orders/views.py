@@ -10,7 +10,8 @@ from .serializers import (
     SupplyOrderSerializer,
     SupplyOrderListSerializer,
     FulfillOrderSerializer,
-    VerifyReceiptSerializer
+    VerifyReceiptSerializer,
+    ManifestDetailsSerializer
 )
 from manifests.models import LotManifest
 from manifests.serializers import LotManifestSerializer
@@ -140,6 +141,63 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
             'batch_number': manifest.batch_number,
             'trust_score': str(manifest.trust_score),
             'order_status': order.status,
+        }, status=status.HTTP_200_OK)
+    
+    @action(detail=True, methods=['get'], permission_classes=[IsPharmacist])
+    def manifest_details(self, request, pk=None):
+        """
+        Digital Bill of Lading endpoint.
+        
+        Returns secure manifest details for pharmacist verification of physical shipments.
+        Only accessible by the pharmacist who owns the order.
+        
+        Permissions:
+            - Must be the pharmacist assigned to the order
+            - Order must be SHIPPED or DELIVERED
+            
+        Returns:
+            - manifest_id: UUID for QR code generation
+            - batch_number: Batch identifier
+            - expiry_date: Expiration date
+            - digital_signature: Ed25519 signature (proof of authenticity)
+            - qr_code_content: Raw string for QR generation
+            - trust_score: Current trust score
+            - medicine_name: Medicine name for verification
+        """
+        order = self.get_object()
+        
+        # Verify pharmacist owns this order
+        if order.pharmacist != request.user:
+            return Response(
+                {'error': 'You can only inspect your own orders'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        # Verify order has been shipped
+        if order.status not in ['SHIPPED', 'DELIVERED']:
+            return Response(
+                {'error': 'Manifest details only available for shipped or delivered orders'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Verify manifest exists
+        if not order.manifest:
+            return Response(
+                {'error': 'No manifest linked to this order'},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        manifest = order.manifest
+        
+        # Return digital bill of lading
+        return Response({
+            'manifest_id': str(manifest.id),
+            'batch_number': manifest.batch_number,
+            'expiry_date': manifest.expiry_date,
+            'digital_signature': manifest.digital_signature,
+            'qr_code_content': str(manifest.id),
+            'trust_score': str(manifest.trust_score),
+            'medicine_name': manifest.medicine.name if manifest.medicine else 'Unknown'
         }, status=status.HTTP_200_OK)
     
     @action(detail=False, methods=['post'], permission_classes=[IsPharmacist])
