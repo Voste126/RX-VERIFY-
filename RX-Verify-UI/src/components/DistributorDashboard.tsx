@@ -86,9 +86,7 @@ const DistributorDashboard: React.FC = () => {
     expiry_date: ''
   });
   const [fulfillFormData, setFulfillFormData] = useState({
-    medicine_id: '',
-    batch_number: '',
-    expiry_date: ''
+    manifest_id: ''  // Only need manifest selection
   });
   
   // Load user data and check for entity
@@ -104,10 +102,12 @@ const DistributorDashboard: React.FC = () => {
           // Check if user has a distributor entity
           const entities = await distributorService.getDistributorEntities();
           console.log('[Dashboard] Fetched entities:', entities);
+          console.log('[Dashboard] User from JWT:', parsedUser.username, parsedUser.id);
           
           if (entities && entities.length > 0) {
             const entity = entities[0];
-            console.log('[Dashboard] Found existing entity:', entity.id);
+            console.log('[Dashboard] Selected entity:', entity.id, entity.name);
+            console.log('[Dashboard] WARNING: If multiple entities exist, first one is selected!');
             setDistributorEntity(entity);
             setStats(prev => ({ ...prev, entityStatus: 'registered' }));
             
@@ -149,7 +149,10 @@ const DistributorDashboard: React.FC = () => {
   
   const loadManifests = async (distributorId?: string) => {
     try {
+      console.log('[loadManifests] Loading manifests for distributor:', distributorId);
       const data = await distributorService.getLotManifests({ distributor: distributorId });
+      console.log('[loadManifests] Loaded manifests:', data.length, 'manifests');
+      data.forEach(m => console.log('  -', m.id, 'by distributor:', m.distributor));
       setManifests(data);
       setStats(prev => ({ ...prev, totalManifests: data.length }));
     } catch (error) {
@@ -176,17 +179,23 @@ const DistributorDashboard: React.FC = () => {
     }
   };
   
+
+  
   const handleFulfillOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOrder) return;
+    if (!selectedOrder || !fulfillFormData.manifest_id) return;
     
     try {
       setSubmitting(true);
       
+      console.log('[FULFILL] Sending request:', {
+        order_id: selectedOrder.id,
+        manifest_id: fulfillFormData.manifest_id,
+        order_distributor: selectedOrder.distributor_name
+      });
+      
       const response = await fulfillOrder(selectedOrder.id, {
-        medicine_id: fulfillFormData.medicine_id,
-        batch_number: fulfillFormData.batch_number,
-        expiry_date: fulfillFormData.expiry_date
+        manifest_id: fulfillFormData.manifest_id
       });
       
       // Refresh orders and manifests
@@ -196,11 +205,7 @@ const DistributorDashboard: React.FC = () => {
       // Reset and close
       setShowFulfillModal(false);
       setSelectedOrder(null);
-      setFulfillFormData({
-        medicine_id: '',
-        batch_number: '',
-        expiry_date: ''
-      });
+      setFulfillFormData({ manifest_id: '' });
       
       
       showModal(
@@ -1318,43 +1323,23 @@ const DistributorDashboard: React.FC = () => {
             
             <form onSubmit={handleFulfillOrder} className="space-y-4">
               <div>
-                <label className="block text-sm font-bold text-gray-300 mb-1">Medicine</label>
+                <label className="block text-sm font-bold text-gray-300 mb-2">Select Manifest to Ship</label>
                 <select
                   required
-                  value={fulfillFormData.medicine_id}
-                  onChange={(e) => setFulfillFormData({ ...fulfillFormData, medicine_id: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                  value={fulfillFormData.manifest_id}
+                  onChange={(e) => setFulfillFormData({ manifest_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-primary/50 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
                 >
-                  <option value="">Select medicine...</option>
-                  {selectedOrder.items && selectedOrder.items.map((item) => (
-                    <option key={item.medicine_id} value={item.medicine_id}>
-                      {item.medicine_id.slice(0, 16)}... (Qty: {item.quantity})
+                  <option value="">-- Select a Lot Manifest --</option>
+                  {manifests.map((manifest) => (
+                    <option key={manifest.id} value={manifest.id}>
+                      Batch: {manifest.batch_number} | Expires: {new Date(manifest.expiry_date).toLocaleDateString()} | Trust: {manifest.trust_score}%
                     </option>
                   ))}
                 </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-300 mb-1">Batch Number</label>
-                <input
-                  type="text"
-                  required
-                  value={fulfillFormData.batch_number}
-                  onChange={(e) => setFulfillFormData({ ...fulfillFormData, batch_number: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                  placeholder="e.g., BATCH-2024-001"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-bold text-gray-300 mb-1">Expiry Date</label>
-                <input
-                  type="date"
-                  required
-                  value={fulfillFormData.expiry_date}
-                  onChange={(e) => setFulfillFormData({ ...fulfillFormData, expiry_date: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-700 bg-[#0a0e1a] text-white rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
-                />
+                <p className="text-xs text-gray-400 mt-2">
+                  💡 Select an existing lot manifest that you've already created. QR code is already generated for the manifest.
+                </p>
               </div>
               
               <div className="flex gap-3 mt-6">
@@ -1363,11 +1348,7 @@ const DistributorDashboard: React.FC = () => {
                   onClick={() => {
                     setShowFulfillModal(false);
                     setSelectedOrder(null);
-                    setFulfillFormData({
-                      medicine_id: '',
-                      batch_number: '',
-                      expiry_date: ''
-                    });
+                    setFulfillFormData({ manifest_id: '' });
                   }}
                   className="flex-1 px-4 py-2 border border-gray-700 text-gray-300 rounded-lg hover:bg-[#0a0e1a] transition-colors font-bold"
                 >
@@ -1375,7 +1356,7 @@ const DistributorDashboard: React.FC = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !fulfillFormData.manifest_id}
                   className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {submitting ? (

@@ -110,16 +110,19 @@ class SupplyOrderListSerializer(serializers.ModelSerializer):
 
 
 class FulfillOrderSerializer(serializers.Serializer):
-    """Serializer for order fulfillment input."""
+    """
+    Serializer for order fulfillment input.
     
-    batch_number = serializers.CharField(max_length=100)
-    expiry_date = serializers.DateField()
-    medicine_id = serializers.UUIDField()
+    Distributors must select an existing manifest (lot/batch) to fulfill orders.
+    Manifests should be created separately in the Manifests section.
+    """
     
-    def validate_batch_number(self, value):
-        """Ensure batch number is unique."""
-        if LotManifest.objects.filter(batch_number=value).exists():
-            raise serializers.ValidationError(f"Batch number '{value}' already exists")
+    manifest_id = serializers.UUIDField(required=True)
+    
+    def validate_manifest_id(self, value):
+        """Ensure manifest exists."""
+        if not LotManifest.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Manifest not found")
         return value
 
 

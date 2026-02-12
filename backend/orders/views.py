@@ -62,12 +62,11 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
         """
         Distributor fulfillment endpoint.
         
-        Creates a new LotManifest, links it to the order, and updates status to SHIPPED.
+        Links an existing manifest (lot/batch) to the order and updates status to SHIPPED.
+        Distributors must create manifests separately before fulfilling orders.
         
         Input:
-            - batch_number: Batch identifier
-            - expiry_date: Expiration date
-            - medicine_id: Medicine UUID
+            - manifest_id: UUID of existing manifest to ship
         
         Returns:
             QR code data (manifest UUID) and batch details
@@ -100,23 +99,33 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
-        # Get medicine
-        medicine = get_object_or_404(Medicine, id=serializer.validated_data['medicine_id'])
+        manifest_id = serializer.validated_data['manifest_id']
         
-        # Create LotManifest using the manifest serializer (auto-generates signature)
-        manifest_data = {
-            'batch_number': serializer.validated_data['batch_number'],
-            'expiry_date': serializer.validated_data['expiry_date'],
-            'medicine': medicine.id,
-            'distributor': distributor_entity.id,
-        }
+        # DEBUG: Log what we're checking
+        print(f"[FULFILL DEBUG] User: {request.user.username}")
+        print(f"[FULFILL DEBUG] Distributor entity from user: {distributor_entity.id} ({distributor_entity.name})")
+        print(f"[FULFILL DEBUG] Order distributor: {order.distributor.id} ({order.distributor.name})")
+        print(f"[FULFILL DEBUG] Manifest ID requested: {manifest_id}")
         
-        manifest_serializer = LotManifestSerializer(data=manifest_data)
-        if not manifest_serializer.is_valid():
-            return Response(manifest_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Create the manifest (signature auto-generated)
-        manifest = manifest_serializer.save()
+        # Get existing manifest and verify ownership
+        try:
+            manifest = LotManifest.objects.get(
+                id=manifest_id,
+                distributor=distributor_entity
+            )
+            print(f"[FULFILL DEBUG] ✓ Manifest found: {manifest.batch_number}")
+        except LotManifest.DoesNotExist:
+            print(f"[FULFILL DEBUG] ✗ Manifest NOT FOUND with distributor={distributor_entity.id}")
+            # Check if manifest exists at all
+            try:
+                manifest_check = LotManifest.objects.get(id=manifest_id)
+                print(f"[FULFILL DEBUG]   But manifest EXISTS with distributor={manifest_check.distributor.id} ({manifest_check.distributor.name})")
+            except LotManifest.DoesNotExist:
+                print(f"[FULFILL DEBUG]   Manifest doesn't exist in database at all!")
+            return Response(
+                {'error': 'Manifest not found or not owned by your distributor entity'},
+                status=status.HTTP_404_NOT_FOUND
+            )
         
         # Link manifest to order
         order.manifest = manifest

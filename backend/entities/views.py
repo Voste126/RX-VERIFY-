@@ -116,6 +116,10 @@ class DistributorViewSet(viewsets.ModelViewSet):
     ordering_fields = ['name', 'is_verified_regulator']
     ordering = ['name']  # Default ordering
     
+    def perform_create(self, serializer):
+        """Auto-assign created_by as the requesting user."""
+        serializer.save(created_by=self.request.user)
+    
     def get_permissions(self):
         """
         Custom permissions: authenticated users can create, only admins can update/delete.
@@ -128,8 +132,10 @@ class DistributorViewSet(viewsets.ModelViewSet):
     
     def get_queryset(self):
         """
-        Optionally filter distributors by verification status.
-        All authenticated users can see all distributors for ordering purposes.
+        Filter distributors based on user role.
+        - Distributors: Only see entities they created (via created_by)
+        - Pharmacists/Patients: See all distributors (for ordering)
+        - Admins: See all distributors
         
         Query params:
             verified (bool): Filter by verification status
@@ -139,9 +145,13 @@ class DistributorViewSet(viewsets.ModelViewSet):
             QuerySet: Filtered distributor queryset
         """
         queryset = super().get_queryset()
+        user = self.request.user
         
-        # Allow all authenticated users to see all distributors
-        # This is necessary for pharmacists to place orders with any distributor
+        # Filter by user role
+        if user.role == 'Distributor':
+            # Distributors only see their own entities
+            queryset = queryset.filter(created_by=user)
+        # Pharmacists, Patients, and Admins see all distributors
         
         # Filter by verification status if param provided
         verified = self.request.query_params.get('verified', None)

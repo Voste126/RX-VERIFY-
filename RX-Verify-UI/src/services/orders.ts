@@ -33,9 +33,13 @@ export interface OrderRequest {
 }
 
 export interface FulfillOrderRequest {
-    batch_number: string;
-    expiry_date: string;
-    medicine_id: string;
+    // Option 1: Select existing manifest
+    manifest_id?: string;
+
+    // Option 2: Create new manifest (required if manifest_id not provided)
+    medicine_id?: string;
+    batch_number?: string;
+    expiry_date?: string;
 }
 
 export interface FulfillOrderResponse {
