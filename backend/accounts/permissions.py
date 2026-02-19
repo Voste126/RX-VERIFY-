@@ -34,7 +34,12 @@ class IsDistributor(permissions.BasePermission):
     """Only allow distributors to access."""
     
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'Distributor'
+        import logging
+        logger = logging.getLogger(__name__)
+        result = bool(request.user and request.user.is_authenticated and request.user.role == 'Distributor')
+        logger.error(f"=== IsDistributor CHECK: user={getattr(request.user, 'username', 'anon')}, role='{getattr(request.user, 'role', 'N/A')}', authenticated={getattr(request.user, 'is_authenticated', False)}, RESULT={result} ===")
+        return result
+
 
 
 class IsPharmacistOrPatient(permissions.BasePermission):
@@ -178,24 +183,39 @@ class IsDistributorOrAdminForManifests(permissions.BasePermission):
     
     def has_permission(self, request, view):
         """Check if user has permission for the action."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         # Must be authenticated
         if not request.user or not request.user.is_authenticated:
+            logger.error(f"=== MANIFEST PERMISSION DENIED: Not authenticated ===")
             return False
+        
+        logger.error(f"=== MANIFEST PERMISSION CHECK ===")
+        logger.error(f"User: {request.user.username}")
+        logger.error(f"Role: '{request.user.role}'")
+        logger.error(f"Action: '{view.action}'")
+        logger.error(f"Method: {request.method}")
         
         # Read operations - all authenticated users
         if view.action in ['list', 'retrieve', 'verify', 'verify_qr']:
+            logger.error(f"ALLOWED: read action")
             return True
         
         # Create and Update - distributors and admins
         if view.action in ['create', 'update', 'partial_update']:
-            return request.user.role in ['Distributor', 'Admin']
+            result = request.user.role in ['Distributor', 'Admin']
+            logger.error(f"CREATE/UPDATE check: role='{request.user.role}', allowed={result}")
+            return result
         
         # Delete - admins only
         if view.action == 'destroy':
             return request.user.role == 'Admin'
         
         # Default deny
+        logger.error(f"DENIED: unhandled action '{view.action}'")
         return False
+
     
     def has_object_permission(self, request, view, obj):
         """Check if user has permission for specific object."""
