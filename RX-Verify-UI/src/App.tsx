@@ -12,6 +12,7 @@ import DistributorDashboard from './components/DistributorDashboard'
 import PharmacistOrderDashboard from './components/PharmacistOrderDashboard'
 import DistributorOrderDashboard from './components/DistributorOrderDashboard'
 import PatientDashboard from './components/PatientDashboard'
+import AdminDashboard from './components/AdminDashboard'
 
 function App() {
   return (
@@ -36,6 +37,9 @@ function App() {
         
         {/* Patient Routes */}
         <Route path="/patient/dashboard" element={<PatientDashboard />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin/dashboard" element={<AdminDashboard />} />
       </Routes>
     </Router>
   )
