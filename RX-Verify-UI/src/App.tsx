@@ -11,6 +11,7 @@ import PharmacistInventoryDashboard from './components/PharmacistInventoryDashbo
 import DistributorDashboard from './components/DistributorDashboard'
 import PharmacistOrderDashboard from './components/PharmacistOrderDashboard'
 import DistributorOrderDashboard from './components/DistributorOrderDashboard'
+import PatientDashboard from './components/PatientDashboard'
 
 function App() {
   return (
@@ -32,6 +33,9 @@ function App() {
         {/* Pharmacist Routes */}
         <Route path="/pharmacist/dashboard" element={<PharmacistInventoryDashboard />} />
         <Route path="/pharmacist/orders" element={<PharmacistOrderDashboard />} />
+        
+        {/* Patient Routes */}
+        <Route path="/patient/dashboard" element={<PatientDashboard />} />
       </Routes>
     </Router>
   )
