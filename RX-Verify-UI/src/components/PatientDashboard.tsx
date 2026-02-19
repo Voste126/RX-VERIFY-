@@ -4,16 +4,18 @@ import { LogOut, ShieldCheck, QrCode, Flag, AlertTriangle, CheckCircle2, Clock }
 import Icon from './Icon';
 import { authService } from '../services/auth';
 import { api } from '../services/api';
+import { fetchMyFlags, createFlag, type CrowdFlag, type FlagSeverity } from '../services/flags';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-interface CrowdFlag {
-  id: string;
-  lot_manifest: string;
-  description: string;
-  flag_type: string;
-  created_at: string;
-  is_resolved: boolean;
-}
+// CrowdFlag is imported from services/flags.ts (matches backend CrowdFlagSerializer)
+
+const ISSUE_TYPES = [
+  'Counterfeit Suspected',
+  'Quality Issue',
+  'Packaging Damage',
+  'Adverse Reaction',
+  'General Concern',
+];
 
 interface QRVerificationResult {
   lot_id?: string;
@@ -38,9 +40,8 @@ interface DashboardStats {
 }
 
 type ActiveTab = 'dashboard' | 'verify' | 'report' | 'myflags';
-type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
-const RISK_OPTIONS: { value: RiskLevel; label: string; icon: string; color: string; desc: string }[] = [
+const RISK_OPTIONS: { value: FlagSeverity; label: string; icon: string; color: string; desc: string }[] = [
   { value: 'LOW',      label: 'Low Risk',    icon: 'info',     color: 'border-blue-400/50 bg-blue-500/10 text-blue-400',       desc: 'Cosmetic damage or label discoloration.' },
   { value: 'MEDIUM',   label: 'Medium Risk', icon: 'warning',  color: 'border-yellow-400/50 bg-yellow-500/10 text-yellow-400', desc: 'Packaging compromise or missing seals.' },
   { value: 'HIGH',     label: 'High Risk',   icon: 'gpp_bad',  color: 'border-orange-400/50 bg-orange-500/10 text-orange-400', desc: 'Suspected forgery or adverse reaction.' },
@@ -97,7 +98,8 @@ const PatientDashboard: React.FC = () => {
   const streamRef = useRef<MediaStream | null>(null);
 
   // ── Report state ──────────────────────────────────────────────────────────
-  const [selectedRisk, setSelectedRisk] = useState<RiskLevel | null>(null);
+  const [selectedRisk, setSelectedRisk] = useState<FlagSeverity | null>(null);
+  const [selectedIssueType, setSelectedIssueType] = useState<string>('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState('');
   const [description, setDescription] = useState('');
@@ -128,8 +130,7 @@ const PatientDashboard: React.FC = () => {
   const loadFlags = async () => {
     setFlagsLoading(true);
     try {
-      const res = await api.get('/flags/');
-      const data: CrowdFlag[] = Array.isArray(res.data) ? res.data : res.data.results ?? [];
+      const data = await fetchMyFlags();
       setMyFlags(data);
       setStats({
         totalFlags: data.length,
@@ -166,7 +167,7 @@ const PatientDashboard: React.FC = () => {
     setVerifyError(null);
     setVerifyResult(null);
     try {
-      const res = await api.get(`/manifests/${target.trim()}/verify/`);
+      const res = await api.get(`/manifests/${target.trim()}/verify-qr/`);
       setVerifyResult(res.data);
       stopCamera();
     } catch (err: any) {
@@ -182,20 +183,29 @@ const PatientDashboard: React.FC = () => {
     try {
       const tags = [...selectedTags];
       if (customTag.trim()) tags.push(customTag.trim());
-      await api.post('/flags/', {
-        lot_manifest: reportManifestId.trim(),
-        flag_type: selectedRisk,
-        description: tags.length > 0 ? `[${tags.join(', ')}] ${description}` : description,
+      const issue = selectedIssueType || 'General Concern';
+      const fullDesc = tags.length > 0 ? `[${tags.join(', ')}] ${description}` : description;
+      await createFlag({
+        lot: reportManifestId.trim(),
+        severity: selectedRisk,
+        reporter_type: 'Patient',
+        issue_type: issue,
+        description: fullDesc,
       });
       setReportSuccess(true);
       setSelectedRisk(null);
+      setSelectedIssueType('');
       setSelectedTags([]);
       setCustomTag('');
       setDescription('');
       setReportManifestId('');
       await loadFlags();
     } catch (err: any) {
-      setReportError(err.response?.data?.detail ?? 'Failed to submit report. Please try again.');
+      const errData = err.response?.data;
+      const detail = typeof errData === 'string'
+        ? errData
+        : errData?.detail ?? errData?.lot?.[0] ?? 'Failed to submit report. Please try again.';
+      setReportError(detail);
     } finally { setReportLoading(false); }
   };
 
@@ -417,22 +427,23 @@ const PatientDashboard: React.FC = () => {
                         {myFlags.slice(0, 6).map(flag => (
                           <div key={flag.id} className="p-4 hover:bg-[#0a0e1a]/50 transition-colors flex items-start gap-3">
                             <div className={`size-9 rounded-xl flex items-center justify-center shrink-0 ${
-                              flag.flag_type === 'CRITICAL' ? 'bg-red-500/20 text-red-400' :
-                              flag.flag_type === 'HIGH'     ? 'bg-orange-500/20 text-orange-400' :
-                              flag.flag_type === 'MEDIUM'   ? 'bg-yellow-500/20 text-yellow-400' :
-                                                              'bg-blue-500/20 text-blue-400'
+                              flag.severity === 'CRITICAL' ? 'bg-red-500/20 text-red-400' :
+                              flag.severity === 'HIGH'     ? 'bg-orange-500/20 text-orange-400' :
+                              flag.severity === 'MEDIUM'   ? 'bg-yellow-500/20 text-yellow-400' :
+                                                             'bg-blue-500/20 text-blue-400'
                             }`}>
                               <Icon name={
-                                flag.flag_type === 'CRITICAL' ? 'dangerous' :
-                                flag.flag_type === 'HIGH'     ? 'gpp_bad' :
-                                flag.flag_type === 'MEDIUM'   ? 'warning' : 'info'
+                                flag.severity === 'CRITICAL' ? 'dangerous' :
+                                flag.severity === 'HIGH'     ? 'gpp_bad' :
+                                flag.severity === 'MEDIUM'   ? 'warning' : 'info'
                               } />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-0.5">
-                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${flagColor(flag.flag_type)}`}>
-                                  {flag.flag_type}
+                                <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${flagColor(flag.severity)}`}>
+                                  {flag.severity}
                                 </span>
+                                <span className="text-[10px] text-gray-500 truncate">{flag.issue_type}</span>
                               </div>
                               <p className="text-xs text-gray-300 truncate">{flag.description || '—'}</p>
                               <p className="text-[10px] text-gray-500 mt-1">{formatDate(flag.created_at)}</p>
@@ -758,6 +769,31 @@ const PatientDashboard: React.FC = () => {
                   />
                 </div>
 
+                {/* Issue Type */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="category" className="text-[#0055FF]" />
+                    <h3 className="font-bold">Issue Type</h3>
+                    <span className="ml-auto text-xs text-gray-500 font-semibold">OPTIONAL</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ISSUE_TYPES.map(it => (
+                      <button
+                        key={it}
+                        type="button"
+                        onClick={() => setSelectedIssueType(prev => prev === it ? '' : it)}
+                        className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+                          selectedIssueType === it
+                            ? 'bg-[#0055FF] border-[#0055FF] text-white'
+                            : 'border-gray-700 text-gray-300 hover:border-gray-500'
+                        }`}
+                      >
+                        {it}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Assessment Level */}
                 <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-4">
                   <div className="flex items-center gap-2">
@@ -910,25 +946,26 @@ const PatientDashboard: React.FC = () => {
                     {myFlags.map(flag => (
                       <div key={flag.id} className="p-4 hover:bg-[#0a0e1a]/50 transition-colors flex items-center gap-4">
                         <div className={`size-10 rounded-xl flex items-center justify-center shrink-0 ${
-                          flag.flag_type === 'CRITICAL' ? 'bg-red-500/20 text-red-400' :
-                          flag.flag_type === 'HIGH'     ? 'bg-orange-500/20 text-orange-400' :
-                          flag.flag_type === 'MEDIUM'   ? 'bg-yellow-500/20 text-yellow-400' :
-                                                          'bg-blue-500/20 text-blue-400'
+                          flag.severity === 'CRITICAL' ? 'bg-red-500/20 text-red-400' :
+                          flag.severity === 'HIGH'     ? 'bg-orange-500/20 text-orange-400' :
+                          flag.severity === 'MEDIUM'   ? 'bg-yellow-500/20 text-yellow-400' :
+                                                         'bg-blue-500/20 text-blue-400'
                         }`}>
                           <Icon name={
-                            flag.flag_type === 'CRITICAL' ? 'dangerous' :
-                            flag.flag_type === 'HIGH'     ? 'gpp_bad' :
-                            flag.flag_type === 'MEDIUM'   ? 'warning' : 'info'
+                            flag.severity === 'CRITICAL' ? 'dangerous' :
+                            flag.severity === 'HIGH'     ? 'gpp_bad' :
+                            flag.severity === 'MEDIUM'   ? 'warning' : 'info'
                           } />
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${flagColor(flag.flag_type)}`}>
-                              {flag.flag_type}
+                            <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${flagColor(flag.severity)}`}>
+                              {flag.severity}
                             </span>
-                            {flag.lot_manifest && (
+                            <span className="text-[10px] text-gray-400 font-medium">{flag.issue_type}</span>
+                            {flag.lot_batch_number && (
                               <span className="text-[10px] text-gray-500 font-mono">
-                                {flag.lot_manifest.slice(0, 20)}…
+                                Batch: {flag.lot_batch_number}
                               </span>
                             )}
                           </div>
