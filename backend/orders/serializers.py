@@ -129,16 +129,17 @@ class FulfillOrderSerializer(serializers.Serializer):
 class VerifyReceiptSerializer(serializers.Serializer):
     """Serializer for pharmacist receipt verification."""
     
-    manifest_uuid = serializers.UUIDField(
+    scanned_uuid = serializers.UUIDField(
         required=True,
         help_text="UUID from the QR code on the physical package"
     )
     
-    def validate_manifest_uuid(self, value):
+    def validate_scanned_uuid(self, value):
         """Ensure manifest exists."""
         if not LotManifest.objects.filter(id=value).exists():
             raise serializers.ValidationError("Manifest not found")
         return value
+
 
 
 class ManifestDetailsSerializer(serializers.Serializer):
