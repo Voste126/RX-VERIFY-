@@ -89,6 +89,13 @@ const PharmacistInventoryDashboard: React.FC = () => {
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
 
+  // useQRScanner must be called at the top level (Rules of Hooks).
+  // We use a ref so onDetected can call handleVerifyBatch even though
+  // handleVerifyBatch is defined later in the function body.
+  const onDetectedRef = React.useRef<(data: string) => void>(() => {});
+  const { videoRef, cameraActive, cameraError, startCamera, stopCamera } = useQRScanner({
+    onDetected: (data: string) => onDetectedRef.current(data),
+  });
 
   // ── Report Issue tab state ─────────────────────────────────────────────────
   const ISSUE_TYPES = ['Counterfeit Suspected','Quality Issue','Packaging Damage','Wrong Medicine','Missing Seal','General Concern'];
@@ -288,13 +295,11 @@ const PharmacistInventoryDashboard: React.FC = () => {
     } finally { setVerifyLoading(false); }
   };
 
-  // QR auto-decode hook — auto-fills & verifies when a code is scanned
-  const { videoRef, cameraActive, cameraError, startCamera, stopCamera } = useQRScanner({
-    onDetected: (data: string) => {
-      setVerifyBatchId(data);
-      handleVerifyBatch(data);
-    },
-  });
+  // Wire up the stable ref so the hook's onDetected calls the latest handler
+  onDetectedRef.current = (data: string) => {
+    setVerifyBatchId(data);
+    handleVerifyBatch(data);
+  };
 
 
   const handleGenerateReceipt = async () => {
@@ -509,12 +514,22 @@ const PharmacistInventoryDashboard: React.FC = () => {
             <div className="max-w-3xl mx-auto space-y-6">
               {/* Scanner card */}
               <div className="bg-[#151923] rounded-2xl border border-gray-700 overflow-hidden">
-                {/* Camera viewport */}
-                <div className="relative bg-black aspect-video max-h-64 flex items-center justify-center">
-                  {cameraActive ? (
+                {/* Camera viewport — video always in DOM so videoRef is ready */}
+                <div className="relative bg-black aspect-video max-h-64 flex items-center justify-center overflow-hidden">
+                  {/* Video always mounted — hidden via opacity when not active */}
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className={`w-full h-full object-cover transition-opacity duration-300 ${
+                      cameraActive ? 'opacity-100' : 'opacity-0'
+                    }`}
+                  />
+
+                  {/* Scan frame overlay — only when active */}
+                  {cameraActive && (
                     <>
-                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                      {/* Scan frame overlay */}
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="w-48 h-48 border-2 border-primary rounded-xl relative">
                           <span className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg" />
@@ -530,8 +545,11 @@ const PharmacistInventoryDashboard: React.FC = () => {
                         <p className="text-xs text-white/70 bg-black/60 px-3 py-1 rounded-full">Point at QR code on packaging</p>
                       </div>
                     </>
-                  ) : (
-                    <div className="flex flex-col items-center gap-3 p-8">
+                  )}
+
+                  {/* Idle placeholder — shown when camera is off */}
+                  {!cameraActive && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8">
                       <div className="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
                         <QrCode className="w-8 h-8 text-primary" />
                       </div>

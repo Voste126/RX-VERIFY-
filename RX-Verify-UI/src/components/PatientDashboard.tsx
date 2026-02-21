@@ -94,6 +94,14 @@ const PatientDashboard: React.FC = () => {
   const [verifyResult, setVerifyResult] = useState<QRVerificationResult | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
 
+  // useQRScanner called at top level (Rules of Hooks).
+  // onDetectedRef lets the stable onDetected callback call handleVerify
+  // even though handleVerify is defined further down.
+  const onDetectedRef = React.useRef<(data: string) => void>(() => {});
+  const { videoRef, cameraActive, cameraError, startCamera, stopCamera } = useQRScanner({
+    onDetected: (data: string) => onDetectedRef.current(data),
+  });
+
   // ── Report state ──────────────────────────────────────────────────────────
   const [selectedRisk, setSelectedRisk] = useState<FlagSeverity | null>(null);
   const [selectedIssueType, setSelectedIssueType] = useState<string>('');
@@ -154,13 +162,11 @@ const PatientDashboard: React.FC = () => {
     } finally { setVerifyLoading(false); }
   };
 
-  // QR auto-decode: when a code is detected, fill the field and verify
-  const { videoRef, cameraActive, cameraError, startCamera, stopCamera } = useQRScanner({
-    onDetected: (data: string) => {
-      setManifestId(data);
-      handleVerify(data);
-    },
-  });
+  // Wire the latest handleVerify into the stable ref after it's defined
+  onDetectedRef.current = (data: string) => {
+    setManifestId(data);
+    handleVerify(data);
+  };
 
 
   const handleSubmitReport = async (e: React.FormEvent) => {
@@ -547,12 +553,22 @@ const PatientDashboard: React.FC = () => {
               {/* Left: scanner */}
               <div className="flex-1 flex flex-col gap-6">
                 <div className="bg-[#151923] rounded-2xl border border-gray-700 overflow-hidden">
-                  {/* Camera view */}
-                  <div className="relative bg-black aspect-video max-h-72 flex items-center justify-center">
-                    {cameraActive ? (
+                  {/* Camera view — video is ALWAYS in DOM so videoRef is ready */}
+                  <div className="relative bg-black aspect-video max-h-72 flex items-center justify-center overflow-hidden">
+                    {/* Video element always mounted — just hidden when inactive */}
+                    <video
+                      ref={videoRef}
+                      autoPlay
+                      playsInline
+                      muted
+                      className={`w-full h-full object-cover transition-opacity duration-300 ${
+                        cameraActive ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    />
+
+                    {/* Scan frame overlay — shown when active */}
+                    {cameraActive && (
                       <>
-                        <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-                        {/* Scan frame */}
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                           <div className="w-48 h-48 border-2 border-[#0055FF] rounded-xl relative">
                             <span className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-[#0055FF] rounded-tl-lg" />
@@ -568,8 +584,11 @@ const PatientDashboard: React.FC = () => {
                           <p className="text-xs text-white/70 bg-black/60 px-3 py-1 rounded-full">Point at QR code</p>
                         </div>
                       </>
-                    ) : (
-                      <div className="flex flex-col items-center gap-3 p-8">
+                    )}
+
+                    {/* Idle placeholder — shown when camera is off */}
+                    {!cameraActive && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8">
                         <div className="size-16 rounded-full bg-[#0055FF]/10 border border-[#0055FF]/20 flex items-center justify-center">
                           <Icon name="qr_code_scanner" className="text-[#0055FF] text-4xl" />
                         </div>
