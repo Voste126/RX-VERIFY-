@@ -870,10 +870,23 @@ const DistributorDashboard: React.FC = () => {
           {/* Orders Tab */}
           {activeTab === 'orders' && (
             <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
-              <div className="flex justify-between items-center">
-                <h3 className="text-lg font-bold text-white">
-                  Pending Orders ({stats.pendingOrders})
-                </h3>
+              {/* Summary tabs */}
+              <div className="flex items-center justify-between">
+                <div className="flex gap-4">
+                  <div className="bg-[#151923] border border-[#FF6B00]/30 rounded-xl px-4 py-2 text-center">
+                    <p className="text-lg font-extrabold text-[#FF6B00]">{orders.filter(o => o.status === 'PENDING').length}</p>
+                    <p className="text-xs text-gray-500">Pending</p>
+                  </div>
+                  <div className="bg-[#151923] border border-blue-500/30 rounded-xl px-4 py-2 text-center">
+                    <p className="text-lg font-extrabold text-blue-400">{orders.filter(o => o.status === 'SHIPPED').length}</p>
+                    <p className="text-xs text-gray-500">Shipped</p>
+                  </div>
+                  <div className="bg-[#151923] border border-green-500/30 rounded-xl px-4 py-2 text-center">
+                    <p className="text-lg font-extrabold text-green-400">{orders.filter(o => o.status === 'DELIVERED').length}</p>
+                    <p className="text-xs text-gray-500">Verified</p>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500">{orders.length} total orders</p>
               </div>
               
               {orders.filter(o => o.status === 'PENDING').length === 0 ? (
@@ -975,10 +988,57 @@ const DistributorDashboard: React.FC = () => {
                   ))}
                 </div>
               )}
+
+              {/* ── Verified / Delivered orders ─────────────────────── */}
+              {orders.filter(o => o.status === 'DELIVERED' || o.status === 'SHIPPED').length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-400 inline-block" />
+                    Fulfilled Orders
+                  </h3>
+                  {orders.filter(o => o.status === 'DELIVERED' || o.status === 'SHIPPED').map((order) => (
+                    <div key={order.id} className={`bg-[#151923] rounded-2xl border shadow-sm p-6 transition-colors ${
+                      order.status === 'DELIVERED' ? 'border-green-500/30 hover:border-green-500/50' : 'border-blue-500/30 hover:border-blue-500/50'
+                    }`}>
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            {order.status === 'DELIVERED' ? (
+                              <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-bold border border-green-500/30">
+                                ✓ VERIFIED BY PHARMACIST
+                              </span>
+                            ) : (
+                              <span className="px-3 py-1 rounded-full bg-blue-500/20 text-blue-400 text-xs font-bold border border-blue-500/30">
+                                SHIPPED
+                              </span>
+                            )}
+                            {order.manifest_batch && <span className="text-xs text-gray-500 font-mono">Batch: {order.manifest_batch}</span>}
+                            {order.manifest_trust_score && (
+                              <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20">
+                                Trust {order.manifest_trust_score}%
+                              </span>
+                            )}
+                          </div>
+                          <h4 className="text-white font-bold">{order.pharmacist_name}</h4>
+                          {order.pharmacist_pharmacy && <p className="text-gray-400 text-sm">{order.pharmacist_pharmacy}</p>}
+                        </div>
+                        <p className="text-xs text-gray-500 shrink-0">
+                          {new Date(order.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                      {order.status === 'DELIVERED' && (
+                        <div className="mt-3 pt-3 border-t border-gray-700/60 flex items-center gap-2 text-xs text-green-500">
+                          <Icon name="verified" className="text-base" />
+                          Chain of custody complete — pharmacist confirmed receipt and authenticated this batch.
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
-          
-          {/* Medicines Tab */}
+
           {activeTab === 'medicines' && (
             <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
               <div className="flex justify-between items-center">

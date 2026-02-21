@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Package, Truck, ClipboardCheck, PlusCircle, Loader2, QrCode, CheckCircle, 
   AlertCircle, TrendingUp, Activity, Shield, LogOut, Search, Flag, FileText,
-  X, CheckCircle2, Camera, StopCircle
+  X, CheckCircle2, Camera, StopCircle, Receipt
 } from 'lucide-react';
 import Icon from './Icon';
 import { 
@@ -13,6 +13,7 @@ import {
   type SupplyOrder, type VerifyReceiptResponse
 } from '../services/orders';
 import { createFlag, type FlagSeverity } from '../services/flags';
+import { getReceiptEvents, createReceiptEvent, type ReceiptEvent as ReceiptEventType } from '../services/receipts';
 import { useQRScanner } from '../hooks/useQRScanner';
 import { api } from '../services/api';
 
@@ -50,7 +51,7 @@ interface DashboardStats {
 
 const PharmacistInventoryDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'verify' | 'report'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'verify' | 'report' | 'receipts'>('dashboard');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -89,6 +90,9 @@ const PharmacistInventoryDashboard: React.FC = () => {
   const [receiptLoading, setReceiptLoading] = useState(false);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
 
+  // ── Receipts log state ─────────────────────────────────────────────────────
+  const [receiptsLog, setReceiptsLog] = useState<ReceiptEventType[]>([]);
+  const [receiptsLoading, setReceiptsLoading] = useState(false);
   // useQRScanner must be called at the top level (Rules of Hooks).
   // We use a ref so onDetected can call handleVerifyBatch even though
   // handleVerifyBatch is defined later in the function body.
@@ -125,6 +129,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
   useEffect(() => {
     loadAllData();
     loadUserData();
+    loadReceipts();
   }, []);
 
   useEffect(() => {
@@ -200,6 +205,15 @@ const PharmacistInventoryDashboard: React.FC = () => {
     }
   };
   
+  const loadReceipts = async () => {
+    setReceiptsLoading(true);
+    try {
+      const data = await getReceiptEvents();
+      setReceiptsLog(data);
+    } catch { setReceiptsLog([]); }
+    finally { setReceiptsLoading(false); }
+  };
+
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -310,6 +324,11 @@ const PharmacistInventoryDashboard: React.FC = () => {
       const result = await verifyReceipt({ scanned_uuid: target });
       setReceiptResult(result);
       setShowReceiptModal(true);
+      // Auto-create a ReceiptEvent (accreditation log) for this verification
+      try {
+        await createReceiptEvent({ lot: target });
+        await loadReceipts(); // refresh the Receipts tab
+      } catch { /* non-blocking — receipt event is supplementary */ }
       await loadAllData();
     } catch (err: any) {
       setVerifyError(err.response?.data?.message ?? 'Failed to generate receipt.');
@@ -450,6 +469,23 @@ const PharmacistInventoryDashboard: React.FC = () => {
             <Flag className="w-5 h-5" />
             <span className="text-sm font-medium">Report Issue</span>
           </button>
+
+          <button
+            onClick={() => { setActiveTab('receipts'); loadReceipts(); }}
+            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
+              activeTab === 'receipts'
+                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
+            }`}
+          >
+            <Receipt className="w-5 h-5" />
+            <span className="text-sm font-medium">Receipts</span>
+            {receiptsLog.length > 0 && (
+              <span className="ml-auto bg-green-500 text-white text-xs font-bold rounded-full px-2 py-0.5">
+                {receiptsLog.length}
+              </span>
+            )}
+          </button>
           
           <div className="mt-6 mb-2 px-3">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Quick Actions</p>
@@ -496,6 +532,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
               {activeTab === 'dashboard' && 'Pharmacy Command Center'}
               {activeTab === 'verify'    && 'Verify Batch'}
               {activeTab === 'report'   && 'Report Suspect Product'}
+              {activeTab === 'receipts' && 'Verified Receipts'}
             </h2>
             {activeTab === 'dashboard' && stats.shippedOrders > 0 && (
               <span className="px-3 py-1 rounded-full bg-[#0055FF]/20 text-[#0055FF] border border-[#0055FF]/30 text-xs font-bold flex items-center gap-1">
@@ -814,6 +851,119 @@ const PharmacistInventoryDashboard: React.FC = () => {
                   Submit Report
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* ══ RECEIPTS TAB ══════════════════════════════════════════════════ */}
+          {activeTab === 'receipts' && (
+            <div className="max-w-4xl mx-auto space-y-6">
+              {/* Header info banner */}
+              <div className="bg-green-500/10 border border-green-500/30 rounded-2xl p-5 flex items-start gap-4">
+                <div className="size-10 rounded-xl bg-green-500/20 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-green-300 font-bold text-sm">Accreditation Trail</h3>
+                  <p className="text-gray-400 text-xs mt-1">
+                    Each entry below is a cryptographically-backed proof that your pharmacy received and verified an authentic batch.
+                    These receipts are timestamped audit logs submitted to the RxVerify system.
+                  </p>
+                </div>
+              </div>
+
+              {/* Stats row */}
+              <div className="grid grid-cols-3 gap-4">
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-4 text-center">
+                  <p className="text-3xl font-extrabold text-white">{receiptsLog.length}</p>
+                  <p className="text-xs text-gray-400 mt-1">Total Receipts</p>
+                </div>
+                <div className="bg-[#151923] rounded-2xl border border-green-500/30 p-4 text-center">
+                  <p className="text-3xl font-extrabold text-green-400">{receiptsLog.length}</p>
+                  <p className="text-xs text-gray-400 mt-1">Verified Batches</p>
+                </div>
+                <div className="bg-[#151923] rounded-2xl border border-blue-500/30 p-4 text-center">
+                  <p className="text-3xl font-extrabold text-blue-400">
+                    {new Set(receiptsLog.map(r => r.lot_batch_number)).size}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-1">Unique Batches</p>
+                </div>
+              </div>
+
+              {/* Receipts list */}
+              {receiptsLoading ? (
+                <div className="flex items-center justify-center py-16 gap-3 text-gray-400">
+                  <Loader2 className="w-6 h-6 animate-spin" />
+                  <span className="text-sm">Loading receipts...</span>
+                </div>
+              ) : receiptsLog.length === 0 ? (
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-16 flex flex-col items-center gap-4 text-center">
+                  <div className="size-16 rounded-full bg-gray-800 flex items-center justify-center">
+                    <Receipt className="w-8 h-8 text-gray-600" />
+                  </div>
+                  <div>
+                    <p className="text-white font-bold">No receipts yet</p>
+                    <p className="text-gray-400 text-sm mt-1">Verify a batch to generate your first accreditation receipt.</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {receiptsLog.map((receipt, idx) => (
+                    <div
+                      key={receipt.id}
+                      className="bg-[#151923] border border-gray-700 rounded-2xl p-5 hover:border-green-500/40 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                          {/* Index badge */}
+                          <div className="size-10 rounded-xl bg-green-500/15 border border-green-500/30 flex items-center justify-center shrink-0">
+                            <span className="text-green-400 font-bold text-sm">#{receiptsLog.length - idx}</span>
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <CheckCircle className="w-4 h-4 text-green-400" />
+                              <span className="font-mono font-bold text-white text-sm">{receipt.lot_batch_number}</span>
+                              <span className="px-2 py-0.5 rounded-full bg-green-500/20 text-green-400 text-xs font-bold border border-green-500/30">
+                                VERIFIED
+                              </span>
+                            </div>
+                            <p className="text-gray-400 text-xs mt-1">
+                              Pharmacist: <span className="text-white font-medium">{receipt.user_username}</span>
+                              {receipt.location_coord && (
+                                <span className="ml-3">
+                                  📍 {receipt.location_coord.lat.toFixed(4)}, {receipt.location_coord.lng.toFixed(4)}
+                                </span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-gray-500">
+                            {new Date(receipt.created_at).toLocaleDateString('en-GB', {
+                              day: '2-digit', month: 'short', year: 'numeric'
+                            })}
+                          </p>
+                          <p className="text-xs text-gray-600 mt-0.5">
+                            {new Date(receipt.created_at).toLocaleTimeString('en-GB', {
+                              hour: '2-digit', minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Divider + batch UUID */}
+                      <div className="mt-3 pt-3 border-t border-gray-700/60 flex items-center justify-between">
+                        <p className="text-xs text-gray-600 font-mono">
+                          Lot ID: {receipt.lot}
+                        </p>
+                        <span className="flex items-center gap-1 text-xs text-green-500">
+                          <Shield className="w-3 h-3" />
+                          Chain of Custody Logged
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
