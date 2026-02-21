@@ -4,7 +4,8 @@ import {
   LogOut, ShieldAlert, Users, FileText, Flag,
   TrendingUp, CheckCircle2, RefreshCw, Search, X,
   Bell, BellOff, Zap, BarChart3, ShoppingCart,
-  Building2, Pill, ClipboardList, RotateCcw, ChevronDown
+  Building2, Pill, ClipboardList, RotateCcw, ChevronDown,
+  AlertTriangle, Eye, Clock, UserCircle, Package, ChevronRight
 } from 'lucide-react';
 import { authService } from '../services/auth';
 import {
@@ -16,7 +17,8 @@ import {
 } from '../services/admin';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type ActiveTab = 'overview' | 'flags' | 'users' | 'manifests' | 'medicines' | 'distributors' | 'receipts' | 'orders';
+type ActiveTab = 'overview' | 'crisis' | 'flags' | 'users' | 'manifests' | 'medicines' | 'distributors' | 'receipts' | 'orders';
+type CrisisSeverityFilter = 'ALL' | 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'OPEN' | 'RESOLVED';
 
 interface CrisisAlert {
   id: string; flagId: string; batchNumber: string;
@@ -48,6 +50,109 @@ const orderStatusCls: Record<string, string> = {
 };
 
 const trustCol = (n: number) => n >= 80 ? '#00C853' : n >= 60 ? '#FFD600' : '#D50000';
+
+// ─── Flag Detail Modal ───────────────────────────────────────────────────────
+const FlagDetailModal: React.FC<{
+  flag: import('../services/admin').AdminCrowdFlag | null;
+  onClose: () => void;
+  onResolve: (id: string, resolved: boolean) => void;
+  resolving: string | null;
+}> = ({ flag, onClose, onResolve, resolving }) => {
+  if (!flag) return null;
+  const m = sevMeta(flag.severity);
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-xl bg-surface-dark rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-slideUp"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className={`px-6 py-4 border-b border-white/8 flex items-center justify-between`}
+          style={{ borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: flag.severity === 'CRITICAL' ? '#D50000' : flag.severity === 'HIGH' ? '#FB8C00' : flag.severity === 'MEDIUM' ? '#FFD600' : '#2979FF' }}>
+          <div className="flex items-center gap-3">
+            <Badge label={flag.severity} className={m.cls} />
+            <span className="font-bold text-white">{flag.issue_type}</span>
+          </div>
+          <button onClick={onClose} className="text-white/30 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="p-6 space-y-5">
+          {/* Description */}
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-white/30 mb-1.5">Description</p>
+            <p className="text-white/80 text-sm leading-relaxed">{flag.description || <span className="text-white/30 italic">No description provided.</span>}</p>
+          </div>
+
+          {/* Metadata grid */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Flag ID</p>
+              <p className="text-xs font-mono text-white/60 break-all">{flag.id}</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Reporter Type</p>
+              <p className="text-sm font-semibold text-white">{flag.reporter_type}</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Reporter</p>
+              <p className="text-sm font-semibold text-white">{flag.user_username}</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Reported</p>
+              <p className="text-sm text-white/70">{timeAgo(flag.created_at)}</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5 col-span-2">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Lot / Batch</p>
+              <p className="text-xs font-mono text-white/60 break-all">{flag.lot}</p>
+              {flag.lot_batch_number && (
+                <p className="text-sm font-bold text-white mt-0.5">Batch: {flag.lot_batch_number}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-white/50">
+              Status:&nbsp;
+              {flag.is_resolved
+                ? <span className="text-success font-bold">Resolved ✓</span>
+                : <span className="text-warning font-bold">Open — Needs Action</span>}
+            </span>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 pt-1">
+            <button
+              onClick={() => onResolve(flag.id, flag.is_resolved)}
+              disabled={resolving === flag.id}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                flag.is_resolved
+                  ? 'bg-warning/10 border border-warning/30 text-warning hover:bg-warning/20'
+                  : 'bg-success/10 border border-success/30 text-success hover:bg-success/20'
+              } disabled:opacity-50`}
+            >
+              {resolving === flag.id
+                ? <RefreshCw className="w-4 h-4 animate-spin" />
+                : flag.is_resolved
+                  ? <><RotateCcw className="w-4 h-4" /> Reopen Flag</>
+                  : <><CheckCircle2 className="w-4 h-4" /> Mark Resolved</>}
+            </button>
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // ─── Micro-components ─────────────────────────────────────────────────────────
 const Card: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
@@ -130,6 +235,9 @@ const AdminDashboard: React.FC = () => {
   const [search, setSearch] = useState('');
   const [alertsMuted, setAlertsMuted] = useState(false);
   const [crisisAlerts, setCrisisAlerts] = useState<CrisisAlert[]>([]);
+  const [severityFilter, setSeverityFilter] = useState<CrisisSeverityFilter>('ALL');
+  const [selectedFlag, setSelectedFlag] = useState<AdminCrowdFlag | null>(null);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
 
   // Data state
   const [flags,       setFlags]       = useState<AdminCrowdFlag[]>([]);
@@ -195,6 +303,7 @@ const AdminDashboard: React.FC = () => {
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const handleResolveFlag = async (id: string, resolved: boolean) => {
+    setResolvingId(id);
     try {
       if (resolved) {
         await unresolveFlag(id);
@@ -202,8 +311,12 @@ const AdminDashboard: React.FC = () => {
         await resolveFlag(id);
       }
       setFlags(prev => prev.map(f => f.id === id ? { ...f, is_resolved: !resolved } : f));
+      // Also update selectedFlag if it's open
+      setSelectedFlag(prev => prev?.id === id ? { ...prev, is_resolved: !resolved } : prev);
       if (!resolved) setCrisisAlerts(prev => prev.map(a => a.flagId === id ? { ...a, dismissed: true } : a));
-    } catch { /* silent */ }
+    } catch { /* silent */ } finally {
+      setResolvingId(null);
+    }
   };
 
   const handleOrderStatus = async (id: string, status: AdminOrder['status']) => {
@@ -222,10 +335,14 @@ const AdminDashboard: React.FC = () => {
     : '—';
   const activeAlerts = crisisAlerts.filter(a => !a.dismissed).length;
 
+  // Computed crisis stats
+  const crisisUnresolved = flags.filter(f => !f.is_resolved && ['CRITICAL','HIGH'].includes(f.severity)).length;
+
   // Nav config
   const NAV: { id: ActiveTab; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'overview',     label: 'Overview',       icon: <BarChart3 className="w-4 h-4" />,     badge: criticalCount || undefined },
-    { id: 'flags',        label: 'Quality Flags',  icon: <Flag className="w-4 h-4" />,           badge: unresolvedCount || undefined },
+    { id: 'overview',     label: 'Overview',        icon: <BarChart3 className="w-4 h-4" />,     badge: criticalCount || undefined },
+    { id: 'crisis',       label: 'Crisis Alerts',   icon: <ShieldAlert className="w-4 h-4" />,   badge: crisisUnresolved || undefined },
+    { id: 'flags',        label: 'Quality Flags',   icon: <Flag className="w-4 h-4" />,          badge: unresolvedCount || undefined },
     { id: 'users',        label: 'Users',          icon: <Users className="w-4 h-4" /> },
     { id: 'orders',       label: 'Supply Orders',  icon: <ShoppingCart className="w-4 h-4" />,   badge: orders.filter(o => o.status === 'PENDING').length || undefined },
     { id: 'manifests',    label: 'Lot Manifests',  icon: <FileText className="w-4 h-4" /> },
@@ -357,6 +474,14 @@ const AdminDashboard: React.FC = () => {
         {/* Crisis banner */}
         {!alertsMuted && <CrisisBanner alerts={crisisAlerts} onDismiss={id => setCrisisAlerts(p => p.map(a => a.id === id ? { ...a, dismissed: true } : a))} onDismissAll={() => setCrisisAlerts(p => p.map(a => ({ ...a, dismissed: true })))} />}
 
+        {/* Flag Detail Modal */}
+        <FlagDetailModal
+          flag={selectedFlag}
+          onClose={() => setSelectedFlag(null)}
+          onResolve={handleResolveFlag}
+          resolving={resolvingId}
+        />
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 space-y-6">
 
@@ -448,6 +573,190 @@ const AdminDashboard: React.FC = () => {
               </Card>
             </div>
           )}
+
+          {/* ── CRISIS ALERTS ──────────────────────────────────────────── */}
+          {activeTab === 'crisis' && (() => {
+            const sevOrder: Record<string,number> = { CRITICAL:0, HIGH:1, MEDIUM:2, LOW:3 };
+            const filtered = flags
+              .filter(f => {
+                if (severityFilter === 'OPEN')     return !f.is_resolved;
+                if (severityFilter === 'RESOLVED') return f.is_resolved;
+                if (severityFilter !== 'ALL')      return f.severity === severityFilter;
+                return true;
+              })
+              .filter(f =>
+                !search ||
+                [f.issue_type, f.user_username, f.severity, f.lot_batch_number, f.reporter_type, f.description]
+                  .some(v => String(v ?? '').toLowerCase().includes(search.toLowerCase()))
+              )
+              .sort((a,b) => sevOrder[a.severity] - sevOrder[b.severity]);
+
+            const countFor = (sev: string, onlyOpen = false) =>
+              flags.filter(f => f.severity === sev && (!onlyOpen || !f.is_resolved)).length;
+
+            const severityConfig: { key: CrisisSeverityFilter; label: string; cls: string }[] = [
+              { key: 'ALL',      label: `All (${flags.length})`,                                             cls: '' },
+              { key: 'CRITICAL', label: `Critical (${countFor('CRITICAL')})`,                               cls: 'text-danger border-danger/40 bg-danger/10' },
+              { key: 'HIGH',     label: `High (${countFor('HIGH')})`,                                       cls: 'text-orange-400 border-orange-400/40 bg-orange-500/10' },
+              { key: 'MEDIUM',   label: `Medium (${countFor('MEDIUM')})`,                                   cls: 'text-warning border-warning/40 bg-yellow-500/10' },
+              { key: 'LOW',      label: `Low (${countFor('LOW')})`,                                         cls: 'text-primary border-primary/40 bg-primary/10' },
+              { key: 'OPEN',     label: `Open (${flags.filter(f => !f.is_resolved).length})`,               cls: 'text-orange-300 border-orange-300/40 bg-orange-300/10' },
+              { key: 'RESOLVED', label: `Resolved (${flags.filter(f => f.is_resolved).length})`,            cls: 'text-success border-success/40 bg-success/10' },
+            ];
+
+            return (
+              <div className="space-y-5">
+                {/* Summary stat row */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {(['CRITICAL','HIGH','MEDIUM','LOW'] as const).map(s => {
+                    const palettes: Record<string,{bg:string;border:string;text:string;dot:string}> = {
+                      CRITICAL: { bg:'bg-danger/10',    border:'border-danger/30',    text:'text-danger',     dot:'bg-danger' },
+                      HIGH:     { bg:'bg-orange-500/10',border:'border-orange-400/30', text:'text-orange-400', dot:'bg-orange-400' },
+                      MEDIUM:   { bg:'bg-yellow-500/10',border:'border-warning/30',   text:'text-warning',    dot:'bg-warning' },
+                      LOW:      { bg:'bg-primary/10',   border:'border-primary/30',   text:'text-primary',    dot:'bg-primary' },
+                    };
+                    const p = palettes[s];
+                    const total = countFor(s);
+                    const open  = countFor(s, true);
+                    return (
+                      <button
+                        key={s}
+                        onClick={() => setSeverityFilter(severityFilter === s ? 'ALL' : s)}
+                        className={`p-4 rounded-2xl border ${p.bg} ${p.border} text-left transition-all hover:opacity-90 ${
+                          severityFilter === s ? 'ring-2 ring-white/20' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`size-2 rounded-full ${p.dot} ${s === 'CRITICAL' ? 'animate-pulse' : ''}`} />
+                          <span className={`text-xs font-bold uppercase tracking-wider ${p.text}`}>{s}</span>
+                        </div>
+                        <p className={`text-3xl font-extrabold text-white`}>{total}</p>
+                        <p className="text-xs text-white/40 mt-0.5">{open} unresolved</p>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Filter pills */}
+                <div className="flex gap-2 flex-wrap items-center">
+                  {severityConfig.map(({ key, label, cls }) => (
+                    <button
+                      key={key}
+                      onClick={() => setSeverityFilter(key)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                        severityFilter === key
+                          ? 'bg-primary border-primary text-white'
+                          : `border-white/10 text-white/50 hover:text-white ${cls}`
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                  <span className="ml-auto text-xs text-white/30">{filtered.length} flag{filtered.length !== 1 ? 's' : ''}</span>
+                </div>
+
+                {/* Flag cards */}
+                {filtered.length === 0 ? (
+                  <Card className="p-16 text-center">
+                    <AlertTriangle className="w-10 h-10 mx-auto mb-3 text-white/20" />
+                    <p className="text-white/40 font-semibold">No flags match the current filter</p>
+                    <p className="text-white/25 text-sm mt-1">Try selecting a different severity or clearing your search</p>
+                  </Card>
+                ) : (
+                  <div className="space-y-3">
+                    {filtered.map(f => {
+                      const m = sevMeta(f.severity);
+                      const borderCols: Record<string,string> = {
+                        CRITICAL: '#D50000', HIGH: '#FB8C00', MEDIUM: '#FFD600', LOW: '#2979FF'
+                      };
+                      return (
+                        <div
+                          key={f.id}
+                          className={`relative bg-surface-dark rounded-2xl border border-white/5 overflow-hidden transition-all hover:border-white/10`}
+                          style={{ borderLeftWidth: 4, borderLeftColor: borderCols[f.severity] }}
+                        >
+                          <div className="p-5">
+                            {/* Top row */}
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Badge label={f.severity} className={m.cls} />
+                                {f.reporter_type && (
+                                  <span className="px-2 py-0.5 rounded-full border text-[10px] font-bold border-white/10 text-white/40">
+                                    {f.reporter_type}
+                                  </span>
+                                )}
+                                {f.is_resolved && (
+                                  <span className="px-2 py-0.5 rounded-full border text-[10px] font-bold text-success border-success/30 bg-success/10">
+                                    RESOLVED
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 text-white/30 text-xs shrink-0">
+                                <Clock className="w-3 h-3" />
+                                {timeAgo(f.created_at)}
+                              </div>
+                            </div>
+
+                            {/* Issue heading */}
+                            <h3 className="text-base font-bold text-white mb-1">{f.issue_type}</h3>
+
+                            {/* Description */}
+                            {f.description && (
+                              <p className="text-sm text-white/55 leading-relaxed line-clamp-2 mb-3">{f.description}</p>
+                            )}
+
+                            {/* Metadata chips */}
+                            <div className="flex items-center gap-4 text-xs text-white/40 flex-wrap">
+                              <span className="flex items-center gap-1">
+                                <Package className="w-3 h-3" />
+                                <span className="font-mono">{f.lot_batch_number || f.lot.slice(0,12)+'…'}</span>
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <UserCircle className="w-3 h-3" />
+                                {f.user_username}
+                              </span>
+                              <span className="font-mono text-white/25">#{f.id.slice(0,8)}</span>
+                            </div>
+
+                            {/* Action row */}
+                            <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/5">
+                              <button
+                                onClick={() => handleResolveFlag(f.id, f.is_resolved)}
+                                disabled={resolvingId === f.id}
+                                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${
+                                  f.is_resolved
+                                    ? 'bg-warning/10 border-warning/30 text-warning hover:bg-warning/20'
+                                    : 'bg-success/10 border-success/30 text-success hover:bg-success/20'
+                                }`}
+                              >
+                                {resolvingId === f.id
+                                  ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                                  : f.is_resolved
+                                    ? <><RotateCcw className="w-3.5 h-3.5" />Reopen</>
+                                    : <><CheckCircle2 className="w-3.5 h-3.5" />Mark Resolved</>}
+                              </button>
+                              <button
+                                onClick={() => setSelectedFlag(f)}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-white/10 text-white/50 hover:text-white hover:bg-white/5 transition-all"
+                              >
+                                <Eye className="w-3.5 h-3.5" /> View Details
+                              </button>
+                              <button
+                                onClick={() => { setActiveTab('flags'); setSearch(f.severity.toLowerCase()); }}
+                                className="ml-auto flex items-center gap-1 text-xs text-white/25 hover:text-white/60 transition-colors"
+                              >
+                                All {f.severity} flags <ChevronRight className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* ── FLAGS ──────────────────────────────────────────────────── */}
           {activeTab === 'flags' && (() => {

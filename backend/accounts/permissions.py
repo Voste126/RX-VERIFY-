@@ -57,6 +57,46 @@ class IsPharmacistOrPatient(permissions.BasePermission):
 IsPatientOrPharmacist = IsPharmacistOrPatient
 
 
+class IsAdminOrPatientOrPharmacist(permissions.BasePermission):
+    """
+    Admins get full access (list, retrieve, destroy, and custom actions like resolve/unresolve).
+    Patients and Pharmacists can list, retrieve, and CREATE flags.
+    No other roles are permitted.
+    """
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        role = getattr(request.user, 'role', None)
+
+        # Admins can do everything except create flags
+        if role == 'Admin':
+            return True
+
+        # Patients and Pharmacists can read and create
+        if role in ('Patient', 'Pharmacist'):
+            return True
+
+        return False
+
+    def has_object_permission(self, request, view, obj):
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        role = getattr(request.user, 'role', None)
+
+        # Admins can access any flag object
+        if role == 'Admin':
+            return True
+
+        # Patients/Pharmacists can only touch their own flags
+        if role in ('Patient', 'Pharmacist'):
+            return obj.user == request.user
+
+        return False
+
+
 
 class IsOwnerOrAdmin(permissions.BasePermission):
     """

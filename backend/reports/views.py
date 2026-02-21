@@ -12,7 +12,7 @@ from drf_spectacular.types import OpenApiTypes
 
 from .models import CrowdFlag
 from .serializers import CrowdFlagSerializer
-from accounts.permissions import IsPatientOrPharmacist
+from accounts.permissions import IsPatientOrPharmacist, IsAdminOrPatientOrPharmacist
 
 
 @extend_schema_view(
@@ -187,7 +187,7 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
     
     queryset = CrowdFlag.objects.all().select_related('user', 'lot')
     serializer_class = CrowdFlagSerializer
-    permission_classes = [IsPatientOrPharmacist]
+    permission_classes = [IsAdminOrPatientOrPharmacist]
     
     # Enable search by description and issue type
     search_fields = ['description', 'issue_type']
@@ -238,10 +238,12 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
         if lot_id:
             queryset = queryset.filter(lot_id=lot_id)
         
-        # Filter to show only current user's flags if requested
+        # Filter to show only current user's flags if requested.
+        # Admins always see all flags, regardless of this param.
         my_flags = self.request.query_params.get('my_flags', None)
         if my_flags and my_flags.lower() == 'true':
-            queryset = queryset.filter(user=self.request.user)
+            if getattr(self.request.user, 'role', None) != 'Admin':
+                queryset = queryset.filter(user=self.request.user)
         
         return queryset
     
