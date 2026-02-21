@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, ShieldCheck, QrCode, Flag, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import Icon from './Icon';
 import { authService } from '../services/auth';
 import { api } from '../services/api';
 import { fetchMyFlags, createFlag, type CrowdFlag, type FlagSeverity } from '../services/flags';
+import { useQRScanner } from '../hooks/useQRScanner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 // CrowdFlag is imported from services/flags.ts (matches backend CrowdFlagSerializer)
@@ -92,10 +93,6 @@ const PatientDashboard: React.FC = () => {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyResult, setVerifyResult] = useState<QRVerificationResult | null>(null);
   const [verifyError, setVerifyError] = useState<string | null>(null);
-  const [cameraActive, setCameraActive] = useState(false);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
 
   // ── Report state ──────────────────────────────────────────────────────────
   const [selectedRisk, setSelectedRisk] = useState<FlagSeverity | null>(null);
@@ -142,24 +139,6 @@ const PatientDashboard: React.FC = () => {
     finally { setFlagsLoading(false); setLoading(false); }
   };
 
-  const startCamera = async () => {
-    setCameraError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
-      streamRef.current = stream;
-      if (videoRef.current) videoRef.current.srcObject = stream;
-      setCameraActive(true);
-    } catch {
-      setCameraError('Camera access denied. Please allow camera permissions or enter the Batch ID manually.');
-    }
-  };
-
-  const stopCamera = () => {
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-    setCameraActive(false);
-  };
-
   const handleVerify = async (id?: string) => {
     const target = id ?? manifestId;
     if (!target.trim()) return;
@@ -174,6 +153,15 @@ const PatientDashboard: React.FC = () => {
       setVerifyError(err.response?.data?.detail ?? 'Manifest not found. Check the Batch ID and try again.');
     } finally { setVerifyLoading(false); }
   };
+
+  // QR auto-decode: when a code is detected, fill the field and verify
+  const { videoRef, cameraActive, cameraError, startCamera, stopCamera } = useQRScanner({
+    onDetected: (data: string) => {
+      setManifestId(data);
+      handleVerify(data);
+    },
+  });
+
 
   const handleSubmitReport = async (e: React.FormEvent) => {
     e.preventDefault();

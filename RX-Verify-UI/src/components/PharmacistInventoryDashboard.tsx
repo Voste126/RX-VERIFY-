@@ -2,16 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Package, Truck, ClipboardCheck, PlusCircle, Loader2, QrCode, CheckCircle, 
-  AlertCircle, TrendingUp, Activity, Shield, LogOut 
+  AlertCircle, TrendingUp, Activity, Shield, LogOut, Search, Flag, FileText,
+  X, CheckCircle2, Camera, StopCircle
 } from 'lucide-react';
 import Icon from './Icon';
 import { 
   createOrder, 
   getPharmacistOrders,
   verifyReceipt,
-  type SupplyOrder 
+  type SupplyOrder, type VerifyReceiptResponse
 } from '../services/orders';
-import api from '../services/api';
+import { createFlag, type FlagSeverity } from '../services/flags';
+import { useQRScanner } from '../hooks/useQRScanner';
+import { api } from '../services/api';
 
 // TypeScript Interfaces
 interface ReceiptEvent {
@@ -47,7 +50,7 @@ interface DashboardStats {
 
 const PharmacistInventoryDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'verify' | 'report'>('dashboard');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -70,7 +73,41 @@ const PharmacistInventoryDashboard: React.FC = () => {
   const [showCreateOrderModal, setShowCreateOrderModal] = useState(false);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [selectedOrderForVerify, setSelectedOrderForVerify] = useState<SupplyOrder | null>(null);
-  
+
+  // ── Verify Batch tab state ─────────────────────────────────────────────────
+  const [verifyBatchId, setVerifyBatchId] = useState('');
+  const [verifyLoading, setVerifyLoading] = useState(false);
+  const [verifyQRResult, setVerifyQRResult] = useState<null | {
+    lot_id?: string; batch_number: string;
+    medicine?: { name: string; active_ingredient: string; strength: string; dosage_form: string };
+    medicine_name?: string; distributor?: string; expiry_date: string;
+    trust_score: number | string; trust_status?: string;
+    is_authentic?: boolean; verification_message?: string; flags_count?: number;
+  }>(null);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [receiptResult, setReceiptResult] = useState<VerifyReceiptResponse | null>(null);
+  const [receiptLoading, setReceiptLoading] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
+
+
+  // ── Report Issue tab state ─────────────────────────────────────────────────
+  const ISSUE_TYPES = ['Counterfeit Suspected','Quality Issue','Packaging Damage','Wrong Medicine','Missing Seal','General Concern'];
+  const ISSUE_TAGS  = ['Broken Seal','Suspected Forgery','Label Discrepancy','Wrong Color/Shape','Missing Batch #','Adverse Reaction'];
+  const RISK_OPTIONS: { value: FlagSeverity; label: string; color: string; desc: string }[] = [
+    { value: 'LOW',      label: 'Low Risk',   color: 'border-blue-400/50 bg-blue-500/10 text-blue-400',     desc: 'Cosmetic damage or minor label issue.' },
+    { value: 'MEDIUM',   label: 'Medium',     color: 'border-yellow-400/50 bg-yellow-500/10 text-yellow-400', desc: 'Packaging compromise or missing seals.' },
+    { value: 'HIGH',     label: 'High Risk',  color: 'border-orange-400/50 bg-orange-500/10 text-orange-400', desc: 'Suspected forgery or adverse reaction.' },
+    { value: 'CRITICAL', label: 'Critical',   color: 'border-red-500/50 bg-red-500/10 text-red-400',         desc: 'Confirmed counterfeit or lethal threat.' },
+  ];
+  const [selectedRisk, setSelectedRisk] = useState<FlagSeverity | null>(null);
+  const [selectedIssueType, setSelectedIssueType] = useState('');
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportBatchId, setReportBatchId] = useState('');
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
+
   // Form states
   const [selectedDistributor, setSelectedDistributor] = useState('');
   const [selectedMedicine, setSelectedMedicine] = useState('');
@@ -82,6 +119,10 @@ const PharmacistInventoryDashboard: React.FC = () => {
     loadAllData();
     loadUserData();
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'verify') stopCamera();
+  }, [activeTab]);
   
   const loadUserData = () => {
     const userData = localStorage.getItem('user');
@@ -229,6 +270,78 @@ const PharmacistInventoryDashboard: React.FC = () => {
       setSubmitting(false);
     }
   };
+
+  // ── Verify Batch tab handlers ──────────────────────────────────────────────
+  const handleVerifyBatch = async (id?: string) => {
+    const target = id ?? verifyBatchId;
+    if (!target.trim()) return;
+    setVerifyLoading(true);
+    setVerifyError(null);
+    setVerifyQRResult(null);
+    setReceiptResult(null);
+    try {
+      const res = await api.get(`/manifests/${target.trim()}/verify-qr/`);
+      setVerifyQRResult(res.data);
+      stopCamera();
+    } catch (err: any) {
+      setVerifyError(err.response?.data?.detail ?? 'Manifest not found. Check the Batch UUID and try again.');
+    } finally { setVerifyLoading(false); }
+  };
+
+  // QR auto-decode hook — auto-fills & verifies when a code is scanned
+  const { videoRef, cameraActive, cameraError, startCamera, stopCamera } = useQRScanner({
+    onDetected: (data: string) => {
+      setVerifyBatchId(data);
+      handleVerifyBatch(data);
+    },
+  });
+
+
+  const handleGenerateReceipt = async () => {
+    const target = verifyBatchId.trim() || verifyQRResult?.lot_id || '';
+    if (!target) return;
+    setReceiptLoading(true);
+    try {
+      const result = await verifyReceipt({ scanned_uuid: target });
+      setReceiptResult(result);
+      setShowReceiptModal(true);
+      await loadAllData();
+    } catch (err: any) {
+      setVerifyError(err.response?.data?.message ?? 'Failed to generate receipt.');
+    } finally { setReceiptLoading(false); }
+  };
+
+  // ── Report Issue tab handlers ──────────────────────────────────────────────
+  const toggleTag = (tag: string) =>
+    setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
+
+  const handleSubmitReport = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRisk || !reportBatchId.trim()) return;
+    setReportLoading(true);
+    setReportError(null);
+    try {
+      const fullDesc = selectedTags.length > 0
+        ? `[${selectedTags.join(', ')}] ${reportDescription}`
+        : reportDescription;
+      await createFlag({
+        lot: reportBatchId.trim(),
+        severity: selectedRisk,
+        reporter_type: 'Pharmacist',
+        issue_type: selectedIssueType || 'General Concern',
+        description: fullDesc,
+      });
+      setReportSuccess(true);
+      setSelectedRisk(null);
+      setSelectedIssueType('');
+      setSelectedTags([]);
+      setReportDescription('');
+      setReportBatchId('');
+    } catch (err: any) {
+      const d = err.response?.data;
+      setReportError(typeof d === 'string' ? d : d?.detail ?? d?.lot?.[0] ?? 'Failed to submit report.');
+    } finally { setReportLoading(false); }
+  };
   
   const getStatusBadge = (status: SupplyOrder['status']) => {
     const styles = {
@@ -318,7 +431,19 @@ const PharmacistInventoryDashboard: React.FC = () => {
             }`}
           >
             <Icon name="verified" />
-            <span className="text-sm font-medium">Verify</span>
+            <span className="text-sm font-medium">Verify Batch</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('report')}
+            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
+              activeTab === 'report'
+                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
+            }`}
+          >
+            <Flag className="w-5 h-5" />
+            <span className="text-sm font-medium">Report Issue</span>
           </button>
           
           <div className="mt-6 mb-2 px-3">
@@ -333,13 +458,6 @@ const PharmacistInventoryDashboard: React.FC = () => {
               <Icon name="add_shopping_cart" className="text-lg" />
             </div>
             <span className="text-sm font-medium">New Order</span>
-          </button>
-          
-          <button className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-white hover:bg-[#0a0e1a]/50 text-left transition-colors">
-            <div className="size-8 rounded-lg bg-orange-500/20 text-orange-400 flex items-center justify-center border border-orange-500/30">
-              <Icon name="report_problem" className="text-lg" />
-            </div>
-            <span className="text-sm font-medium">Report Issue</span>
           </button>
         </nav>
         
@@ -369,8 +487,12 @@ const PharmacistInventoryDashboard: React.FC = () => {
         {/* Top Header */}
         <header className="h-16 shrink-0 bg-[#151923]/80 backdrop-blur-md border-b border-gray-700 flex items-center justify-between px-8 z-10 sticky top-0">
           <div className="flex items-center gap-4">
-            <h2 className="text-xl font-bold text-white">Pharmacy Command Center</h2>
-            {stats.shippedOrders > 0 && (
+            <h2 className="text-xl font-bold text-white">
+              {activeTab === 'dashboard' && 'Pharmacy Command Center'}
+              {activeTab === 'verify'    && 'Verify Batch'}
+              {activeTab === 'report'   && 'Report Suspect Product'}
+            </h2>
+            {activeTab === 'dashboard' && stats.shippedOrders > 0 && (
               <span className="px-3 py-1 rounded-full bg-[#0055FF]/20 text-[#0055FF] border border-[#0055FF]/30 text-xs font-bold flex items-center gap-1">
                 <Activity className="w-3 h-3" />
                 {stats.shippedOrders} shipment{stats.shippedOrders > 1 ? 's' : ''} ready
@@ -379,8 +501,306 @@ const PharmacistInventoryDashboard: React.FC = () => {
           </div>
         </header>
         
-        {/* Scrollable Dashboard Content */}
+        {/* Scrollable Content */}
         <div className="flex-1 overflow-y-auto p-8">
+
+          {/* ══ VERIFY BATCH TAB ══════════════════════════════════════════════════ */}
+          {activeTab === 'verify' && (
+            <div className="max-w-3xl mx-auto space-y-6">
+              {/* Scanner card */}
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 overflow-hidden">
+                {/* Camera viewport */}
+                <div className="relative bg-black aspect-video max-h-64 flex items-center justify-center">
+                  {cameraActive ? (
+                    <>
+                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                      {/* Scan frame overlay */}
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-48 h-48 border-2 border-primary rounded-xl relative">
+                          <span className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-primary rounded-tl-lg" />
+                          <span className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-primary rounded-tr-lg" />
+                          <span className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-primary rounded-bl-lg" />
+                          <span className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-primary rounded-br-lg" />
+                          <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-primary/60 animate-[scan_2s_linear_infinite]" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="absolute bottom-3 w-full flex justify-center">
+                        <p className="text-xs text-white/70 bg-black/60 px-3 py-1 rounded-full">Point at QR code on packaging</p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3 p-8">
+                      <div className="size-16 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                        <QrCode className="w-8 h-8 text-primary" />
+                      </div>
+                      <p className="text-gray-300 text-sm font-medium">Camera not active</p>
+                      {cameraError && <p className="text-red-400 text-xs text-center max-w-xs">{cameraError}</p>}
+                      <button
+                        onClick={startCamera}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-primary hover:bg-primary/90 text-white font-bold text-sm transition-all shadow-lg shadow-primary/20"
+                      >
+                        <Camera className="w-4 h-4" />
+                        Start QR Scanner
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Manual input */}
+                <div className="p-5 space-y-4 border-t border-gray-700">
+                  {cameraActive && (
+                    <button
+                      onClick={stopCamera}
+                      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-300 hover:bg-gray-700 text-sm transition-all"
+                    >
+                      <StopCircle className="w-4 h-4" />
+                      Stop Camera
+                    </button>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px bg-gray-700" />
+                    <span className="text-xs text-gray-500">or enter manually</span>
+                    <div className="flex-1 h-px bg-gray-700" />
+                  </div>
+                  <div className="flex gap-3">
+                    <input
+                      type="text"
+                      value={verifyBatchId}
+                      onChange={e => setVerifyBatchId(e.target.value)}
+                      placeholder="Paste Batch UUID (e.g. 494466b3-0f94-…)"
+                      onKeyDown={e => e.key === 'Enter' && handleVerifyBatch()}
+                      className="flex-1 px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary/50 placeholder-gray-600"
+                    />
+                    <button
+                      onClick={() => handleVerifyBatch()}
+                      disabled={!verifyBatchId.trim() || verifyLoading}
+                      className="flex items-center gap-2 px-5 py-3 rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-bold text-sm transition-all"
+                    >
+                      {verifyLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                      Verify
+                    </button>
+                  </div>
+                  {verifyError && (
+                    <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                      <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                      <p className="text-sm text-red-300">{verifyError}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Verification result */}
+              {verifyQRResult && (
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 overflow-hidden">
+                  <div className={`h-1.5 w-full ${
+                    String(verifyQRResult.trust_status ?? '').startsWith('SAF') ? 'bg-[#00C853]' :
+                    String(verifyQRResult.trust_status ?? '').startsWith('CAU') ? 'bg-yellow-400' : 'bg-red-500'
+                  }`} />
+                  <div className="p-6">
+                    <div className="flex items-start justify-between gap-3 mb-5">
+                      <div>
+                        <h3 className="font-bold text-white text-lg">
+                          {verifyQRResult.medicine?.name || verifyQRResult.medicine_name || 'Unknown Medicine'}
+                        </h3>
+                        <p className="text-xs text-gray-400 font-mono mt-0.5">Batch: {verifyQRResult.batch_number}</p>
+                      </div>
+                      <span className={`px-3 py-1 rounded-full border font-bold text-xs ${
+                        String(verifyQRResult.trust_status ?? '').startsWith('SAF') ? 'bg-[#00C853]/20 text-[#00C853] border-[#00C853]/30' :
+                        String(verifyQRResult.trust_status ?? '').startsWith('CAU') ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                        'bg-red-500/20 text-red-400 border-red-500/30'
+                      }`}>
+                        {verifyQRResult.trust_status ?? 'UNKNOWN'} · {Number(verifyQRResult.trust_score).toFixed(0)}%
+                      </span>
+                    </div>
+
+                    <div className={`flex items-center gap-2 p-3 rounded-lg mb-5 ${
+                      verifyQRResult.is_authentic !== false
+                        ? 'bg-[#00C853]/10 border border-[#00C853]/30'
+                        : 'bg-red-500/10 border border-red-500/30'
+                    }`}>
+                      {verifyQRResult.is_authentic !== false
+                        ? <CheckCircle className="w-5 h-5 text-[#00C853]" />
+                        : <AlertCircle className="w-5 h-5 text-red-400" />}
+                      <p className={`text-sm font-semibold ${
+                        verifyQRResult.is_authentic !== false ? 'text-[#00C853]' : 'text-red-400'
+                      }`}>
+                        {verifyQRResult.verification_message ?? (verifyQRResult.is_authentic !== false ? 'Authentic & Verified' : 'Verification Failed')}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm mb-5">
+                      {verifyQRResult.medicine && [
+                        ['Active Ingredient', verifyQRResult.medicine.active_ingredient],
+                        ['Strength', verifyQRResult.medicine.strength],
+                        ['Dosage Form', verifyQRResult.medicine.dosage_form],
+                        ['Expiry Date', verifyQRResult.expiry_date],
+                      ].map(([label, value]) => (
+                        <div key={label} className="flex flex-col bg-[#0a0e1a] rounded-lg p-3 border border-gray-700">
+                          <span className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">{label}</span>
+                          <span className="text-white font-semibold">{value}</span>
+                        </div>
+                      ))}
+                      {verifyQRResult.distributor && (
+                        <div className="col-span-2 flex flex-col bg-[#0a0e1a] rounded-lg p-3 border border-gray-700">
+                          <span className="text-[10px] uppercase tracking-wider text-gray-500 mb-1">Distributor</span>
+                          <span className="text-white font-semibold">{verifyQRResult.distributor}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {verifyQRResult.flags_count !== undefined && verifyQRResult.flags_count > 0 && (
+                      <div className="flex items-center gap-2 p-3 rounded-lg bg-orange-500/10 border border-orange-500/30 mb-4">
+                        <Flag className="w-4 h-4 text-orange-400" />
+                        <p className="text-xs text-orange-400 font-semibold">
+                          {verifyQRResult.flags_count} flag{verifyQRResult.flags_count > 1 ? 's' : ''} reported on this batch
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={handleGenerateReceipt}
+                        disabled={receiptLoading}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#00C853]/10 border border-[#00C853]/30 text-[#00C853] font-bold hover:bg-[#00C853]/20 transition-colors disabled:opacity-50"
+                      >
+                        {receiptLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                        Generate Receipt
+                      </button>
+                      <button
+                        onClick={() => { setReportBatchId(verifyQRResult.lot_id ?? verifyBatchId); setActiveTab('report'); }}
+                        className="flex items-center gap-2 py-3 px-4 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 font-bold hover:bg-orange-500/20 transition-colors text-sm"
+                      >
+                        <Flag className="w-4 h-4" /> Report
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ══ REPORT ISSUE TAB ════════════════════════════════════════════════ */}
+          {activeTab === 'report' && (
+            <div className="max-w-2xl mx-auto space-y-5">
+              {reportSuccess && (
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-[#00C853]/10 border border-[#00C853]/30">
+                  <CheckCircle2 className="w-6 h-6 text-[#00C853] shrink-0" />
+                  <div>
+                    <p className="font-bold text-[#00C853]">Report Submitted!</p>
+                    <p className="text-sm text-gray-300">Thank you. Our team will review your report shortly.</p>
+                  </div>
+                  <button onClick={() => setReportSuccess(false)} className="ml-auto text-gray-400 hover:text-white"><X className="w-4 h-4" /></button>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmitReport} className="space-y-5">
+                {/* Batch ID */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="tag" className="text-primary" />
+                    <h3 className="font-bold">Batch ID</h3>
+                    <span className="ml-auto text-xs text-red-400 font-semibold">REQUIRED</span>
+                  </div>
+                  <input
+                    type="text" value={reportBatchId}
+                    onChange={e => setReportBatchId(e.target.value)}
+                    placeholder="Enter Lot Manifest UUID from medicine packaging…"
+                    required
+                    className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary/50 placeholder-gray-600"
+                  />
+                </div>
+
+                {/* Issue Type */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="category" className="text-primary" />
+                    <h3 className="font-bold">Issue Type</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ISSUE_TYPES.map(it => (
+                      <button key={it} type="button"
+                        onClick={() => setSelectedIssueType(prev => prev === it ? '' : it)}
+                        className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
+                          selectedIssueType === it ? 'bg-primary border-primary text-white' : 'border-gray-700 text-gray-300 hover:border-gray-500'
+                        }`}>{it}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Severity */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Icon name="bar_chart" className="text-primary" />
+                    <h3 className="font-bold">Risk Assessment</h3>
+                    <span className="ml-auto text-xs text-red-400 font-semibold">REQUIRED</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {RISK_OPTIONS.map(opt => (
+                      <button key={opt.value} type="button"
+                        onClick={() => setSelectedRisk(opt.value)}
+                        className={`p-4 rounded-xl border-2 text-left transition-all ${
+                          selectedRisk === opt.value ? opt.color + ' border-opacity-100' : 'border-gray-700 hover:border-gray-500'
+                        }`}>
+                        <p className="font-bold">{opt.label}</p>
+                        <p className="text-xs text-gray-400 mt-1">{opt.desc}</p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Observation Tags */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="label" className="text-primary" />
+                    <h3 className="font-bold">Observations</h3>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {ISSUE_TAGS.map(tag => (
+                      <button key={tag} type="button" onClick={() => toggleTag(tag)}
+                        className={`px-3 py-1.5 rounded-full border text-xs font-medium transition-all ${
+                          selectedTags.includes(tag) ? 'bg-primary/20 border-primary/50 text-primary' : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
+                        }`}>{tag}</button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Icon name="notes" className="text-primary" />
+                    <h3 className="font-bold">Description</h3>
+                  </div>
+                  <textarea
+                    value={reportDescription} rows={4}
+                    onChange={e => setReportDescription(e.target.value)}
+                    placeholder="Describe the issue in detail — what you observed, when, and any patient impact…"
+                    className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary/50 placeholder-gray-600 resize-none"
+                  />
+                </div>
+
+                {reportError && (
+                  <div className="flex items-start gap-2 p-3 rounded-lg bg-red-500/10 border border-red-500/30">
+                    <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 shrink-0" />
+                    <p className="text-sm text-red-300">{reportError}</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={reportLoading || !selectedRisk || !reportBatchId.trim()}
+                  className="w-full py-3 px-6 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-500/20"
+                >
+                  {reportLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Flag className="w-4 h-4" />}
+                  Submit Report
+                </button>
+              </form>
+            </div>
+          )}
+
+          {/* ══ DASHBOARD TAB ════════════════════════════════════════════════════ */}
+          {activeTab === 'dashboard' && (
           <div className="max-w-[1600px] mx-auto flex flex-col lg:flex-row gap-6">
             {/* Left Column: Stats & Activity */}
             <div className="flex-1 flex flex-col gap-6">
@@ -569,10 +989,88 @@ const PharmacistInventoryDashboard: React.FC = () => {
               </div>
             </div>
           </div>
+          )}
         </div>
       </main>
       
+
+      {/* ── Receipt / Verification Certificate Modal ──────────────────────────── */}
+      {showReceiptModal && receiptResult && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-gray-700 rounded-2xl p-0 max-w-lg w-full shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className={`h-2 w-full ${receiptResult.chain_of_custody ? 'bg-[#00C853]' : 'bg-yellow-400'}`} />
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#00C853]" />
+                  Verification Receipt
+                </h3>
+                <button onClick={() => setShowReceiptModal(false)} className="text-gray-400 hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Status banner */}
+              <div className={`flex items-center gap-3 p-4 rounded-xl mb-5 ${
+                receiptResult.chain_of_custody
+                  ? 'bg-[#00C853]/10 border border-[#00C853]/30'
+                  : 'bg-yellow-500/10 border border-yellow-500/30'
+              }`}>
+                {receiptResult.chain_of_custody
+                  ? <CheckCircle className="w-5 h-5 text-[#00C853]" />
+                  : <AlertCircle className="w-5 h-5 text-yellow-400" />}
+                <div>
+                  <p className={`font-bold text-sm ${receiptResult.chain_of_custody ? 'text-[#00C853]' : 'text-yellow-400'}`}>
+                    {receiptResult.message}
+                  </p>
+                  {receiptResult.chain_of_custody && (
+                    <p className="text-xs text-gray-400">Full chain of custody confirmed</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Details grid */}
+              <div className="grid grid-cols-2 gap-3 mb-5">
+                {[
+                  ['Medicine',    receiptResult.medicine_name],
+                  ['Batch #',     receiptResult.batch_number],
+                  ['Trust Score', receiptResult.trust_score + (receiptResult.bonus_applied ? ` (+${receiptResult.bonus_applied} bonus)` : '')],
+                  ['Distributor', receiptResult.distributor_name],
+                ].map(([label, value]) => (
+                  <div key={label} className="bg-[#0a0e1a] border border-gray-700 rounded-lg p-3">
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+                    <p className="text-sm font-bold text-white">{value}</p>
+                  </div>
+                ))}
+              </div>
+
+              <p className="text-xs text-gray-500 text-center mb-5">
+                Verified at {new Date().toLocaleString()} · RxVerify Lite
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => window.print()}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#0055FF]/10 border border-[#0055FF]/30 text-[#0055FF] font-bold hover:bg-[#0055FF]/20 transition-colors"
+                >
+                  <FileText className="w-4 h-4" />
+                  Print / Save PDF
+                </button>
+                <button
+                  onClick={() => setShowReceiptModal(false)}
+                  className="flex-1 py-2.5 rounded-xl bg-gray-700 hover:bg-gray-600 text-white font-bold transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Create Order Modal */}
+
       {showCreateOrderModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
           <div className="bg-[#151923] border border-gray-700 rounded-2xl p-6 max-w-lg w-full shadow-2xl">
