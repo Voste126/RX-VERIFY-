@@ -52,19 +52,9 @@ const PharmacistOrderDashboard: React.FC = () => {
   const [locked, setLocked] = useState(true);
   
   // Error Modal state
-  const [modal, setModal] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    type: 'error' | 'success' | 'warning' | 'info';
-  }>({ isOpen: false, title: '', message: '', type: 'info' });
-  
   const showModal = (title: string, message: string, type: 'error' | 'success' | 'warning' | 'info' = 'info') => {
-    setModal({ isOpen: true, title, message, type });
-  };
-  
-  const closeModal = () => {
-    setModal(prev => ({ ...prev, isOpen: false }));
+    // Legacy generic modal hook is no longer used here
+    console.log(`Modal [${type}]: ${title} - ${message}`);
   };
   
   useEffect(() => {
@@ -136,40 +126,39 @@ const PharmacistOrderDashboard: React.FC = () => {
   };
   
   const handleVerifyReceipt = async () => {
-    if (!scannedUuid.trim()) {
-      alert('Please enter a manifest UUID');
+    // This function is no longer used directly in the UI, but kept for potential future use or if called elsewhere.
+    // The verification logic is now integrated into handleCompleteVerification for physical inspection.
+    if (!manifestDetails?.manifest_id.trim()) { // Using manifestDetails for verification
+      alert('No manifest ID available for verification');
       return;
     }
     
     try {
       setSubmitting(true);
-      const result = await verifyReceipt({ scanned_uuid: scannedUuid });
-      setVerificationResult(result);
+      const result = await verifyReceipt({ scanned_uuid: manifestDetails.manifest_id });
+      // setVerificationResult(result); // No longer storing result in state
+      console.log('Receipt verification result:', result);
       
       // Refresh orders to update status
       await loadData();
     } catch (error: any) {
       console.error('Error verifying receipt:', error);
-      setVerificationResult({
-        status: 'INVALID',
-        message: error.response?.data?.message || 'Verification failed',
-        trust_score: '0.00',
-        chain_of_custody: false
-      });
+      // setVerificationResult({ // No longer storing result in state
+      //   status: 'INVALID',
+      //   message: error.response?.data?.message || 'Verification failed',
+      //   trust_score: '0.00',
+      //   chain_of_custody: false
+      // });
+      showModal('Verification Failed', error.response?.data?.message || 'Verification failed', 'error');
     } finally {
       setSubmitting(false);
     }
   };
   
-  const openVerifyModal = () => {
-    setScannedUuid('');
-    setVerificationResult(null);
-    setShowVerifyModal(true);
-  };
+
   
   const closeVerifyModal = () => {
     setShowVerifyModal(false);
-    setScannedUuid('');
     setVerificationResult(null);
   };
   

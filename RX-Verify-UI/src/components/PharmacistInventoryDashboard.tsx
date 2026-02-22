@@ -179,9 +179,9 @@ const PharmacistInventoryDashboard: React.FC = () => {
     }
   };
   
-  const loadAllData = async () => {
+  const loadAllData = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       console.log('[PharmacistDashboard] Loading data...');
       
       const [receiptsData, ordersData, distributorsData] = await Promise.all([
@@ -219,7 +219,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
     } catch (error) {
       console.error('[PharmacistDashboard] Error loading data:', error);
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
   
@@ -378,10 +378,24 @@ const PharmacistInventoryDashboard: React.FC = () => {
     if (verificationMatch === 'match' && manifestDetails && inspectingOrder) {
       try {
         setSubmitting(true);
-        await verifyReceipt({ scanned_uuid: manifestDetails.manifest_id });
+        const result = await verifyReceipt({ scanned_uuid: manifestDetails.manifest_id });
+        
+        // Trigger the identical verifiable receipt pop-up
+        setReceiptResult(result);
+        setShowReceiptModal(true);
+        
+        try {
+          await createReceiptEvent({ 
+            lot: manifestDetails.manifest_id,
+            location_coord: { lat: -1.2921, lng: 36.8219 } // Nairobi default for testing 
+          });
+          await loadReceipts(); 
+        } catch (err: any) { 
+          console.error("Failed to generate receipt event:", err.response?.data || err); 
+        }
+        
         closeInspectModal();
-        await loadAllData();
-        showModal('Verification Complete', '✓ Shipment successfully verified and received!', 'success');
+        await loadAllData(false);
       } catch (error: any) {
         console.error('Error verifying receipt:', error);
         showModal('Verification Failed', error.response?.data?.error || 'Failed to verify receipt', 'error');
@@ -449,10 +463,15 @@ const PharmacistInventoryDashboard: React.FC = () => {
       setShowReceiptModal(true);
       // Auto-create a ReceiptEvent (accreditation log) for this verification
       try {
-        await createReceiptEvent({ lot: target });
+        await createReceiptEvent({ 
+          lot: target,
+          location_coord: { lat: -1.2921, lng: 36.8219 } // Nairobi default
+        });
         await loadReceipts(); // refresh the Receipts tab
-      } catch { /* non-blocking — receipt event is supplementary */ }
-      await loadAllData();
+      } catch (err: any) { 
+        console.error("Failed to generate receipt event:", err.response?.data || err);
+      }
+      await loadAllData(false);
     } catch (err: any) {
       setVerifyError(err.response?.data?.message ?? 'Failed to generate receipt.');
     } finally { setReceiptLoading(false); }

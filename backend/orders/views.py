@@ -200,7 +200,7 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
             'medicine_name': manifest.medicine.name if manifest.medicine else 'Unknown'
         }, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['post'], permission_classes=[IsPharmacist])
+    @action(detail=False, methods=['post'], permission_classes=[IsAdminOrPharmacist])
     def verify_receipt(self, request):
         """
         Pharmacist secure receipt verification endpoint.
@@ -246,10 +246,16 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
         
         # Step 2: Check chain of custody
         try:
-            supply_order = SupplyOrder.objects.get(
-                manifest=manifest,
-                pharmacist=request.user
-            )
+            if request.user.role == 'Admin':
+                # Admins can verify any order
+                supply_order = SupplyOrder.objects.filter(manifest=manifest).first()
+                if not supply_order:
+                    raise SupplyOrder.DoesNotExist
+            else:
+                supply_order = SupplyOrder.objects.get(
+                    manifest=manifest,
+                    pharmacist=request.user
+                )
             chain_verified = True
         except SupplyOrder.DoesNotExist:
             supply_order = None
