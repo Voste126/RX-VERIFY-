@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, ClipboardCheck, Plus, QrCode, Loader2, Lock, LockOpen, CheckCircle, AlertTriangle } from 'lucide-react';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
-import ErrorModal from './ErrorModal';
+
 import { 
   createOrder, 
   getPharmacistOrders, 

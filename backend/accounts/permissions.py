@@ -23,6 +23,13 @@ class IsPharmacist(permissions.BasePermission):
         return request.user and request.user.is_authenticated and request.user.role == 'Pharmacist'
 
 
+class IsAdminOrPharmacist(permissions.BasePermission):
+    """Allow pharmacists and admins to access. Used for manifesting details."""
+    
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role in ['Pharmacist', 'Admin']
+
+
 class IsPatient(permissions.BasePermission):
     """Only allow patients to access."""
     
@@ -70,7 +77,7 @@ class IsAdminOrPatientOrPharmacist(permissions.BasePermission):
 
         role = getattr(request.user, 'role', None)
 
-        # Admins can do everything except create flags
+        # Admins, Patients, and Pharmacists can access this endpoint
         if role == 'Admin':
             return True
 

@@ -422,6 +422,10 @@ class LotManifestViewSet(viewsets.ModelViewSet):
         is_authentic = lot_manifest.verify_signature()
         verification_message = "Verified ✓" if is_authentic else "⚠️ Verification Failed - Possible Counterfeit"
         
+        # Get score breakdown
+        serializer = self.get_serializer(lot_manifest)
+        score_breakdown = serializer.data.get('score_breakdown', {})
+        
         # Construct patient-friendly response
         response_data = {
             "lot_id": str(lot_manifest.id),
@@ -439,6 +443,7 @@ class LotManifestViewSet(viewsets.ModelViewSet):
             "is_authentic": is_authentic,
             "verification_message": verification_message,
             "flags_count": flags_count,
+            "score_breakdown": score_breakdown,
             "can_report": True,
             "report_url": "/api/flags/"
         }

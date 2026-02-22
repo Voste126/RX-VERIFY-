@@ -3,19 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { 
   Package, Truck, ClipboardCheck, PlusCircle, Loader2, QrCode, CheckCircle, 
   AlertCircle, TrendingUp, Activity, Shield, LogOut, Search, Flag, FileText,
-  X, CheckCircle2, Camera, StopCircle, Receipt
+  X, CheckCircle2, Camera, StopCircle, Receipt, Lock, LockOpen, AlertTriangle
 } from 'lucide-react';
+import { QRCodeCanvas as QRCode } from 'qrcode.react';
 import Icon from './Icon';
+import ErrorModal from './ErrorModal';
 import { 
   createOrder, 
   getPharmacistOrders,
   verifyReceipt,
-  type SupplyOrder, type VerifyReceiptResponse
+  getOrderManifest,
+  type SupplyOrder, type VerifyReceiptResponse, type ManifestDetails
 } from '../services/orders';
 import { createFlag, type FlagSeverity } from '../services/flags';
 import { getReceiptEvents, createReceiptEvent, type ReceiptEvent as ReceiptEventType } from '../services/receipts';
 import { useQRScanner } from '../hooks/useQRScanner';
 import { api } from '../services/api';
+import TrustGauge from './TrustGauge';
 
 // TypeScript Interfaces
 interface ReceiptEvent {
@@ -51,7 +55,7 @@ interface DashboardStats {
 
 const PharmacistInventoryDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'verify' | 'report' | 'receipts'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'verify' | 'report' | 'receipts' | 'orders'>('dashboard');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -126,6 +130,37 @@ const PharmacistInventoryDashboard: React.FC = () => {
   const [scannedUuid, setScannedUuid] = useState('');
   const [verificationResult, setVerificationResult] = useState<any>(null);
   
+  // ── Digital Bill of Lading states ──────────────────────────────────────────
+  const [showInspectModal, setShowInspectModal] = useState(false);
+  const [inspectingOrder, setInspectingOrder] = useState<SupplyOrder | null>(null);
+  const [manifestDetails, setManifestDetails] = useState<ManifestDetails | null>(null);
+  const [scannedPhysicalUuid, setScannedPhysicalUuid] = useState('');
+  const [verificationMatch, setVerificationMatch] = useState<'match' | 'mismatch' | null>(null);
+  const [locked, setLocked] = useState(true);
+
+  // Scanner for Inspect Modal
+  const onInspectDetectedRef = React.useRef<(data: string) => void>(() => {});
+  const { 
+    videoRef: inspectVideoRef, 
+    cameraActive: inspectCameraActive, 
+    cameraError: inspectCameraError, 
+    startCamera: inspectStartCamera, 
+    stopCamera: inspectStopCamera 
+  } = useQRScanner({
+    onDetected: (data: string) => onInspectDetectedRef.current(data),
+  });
+
+  // ── Error Modal state ──────────────────────────────────────────────────────
+  const [modal, setModal] = useState<{
+    isOpen: boolean; title: string; message: string; type: 'error' | 'success' | 'warning' | 'info';
+  }>({ isOpen: false, title: '', message: '', type: 'info' });
+  
+  const showModal = (title: string, message: string, type: 'error' | 'success' | 'warning' | 'info' = 'info') => {
+    setModal({ isOpen: true, title, message, type });
+  };
+  
+  const closeModal = () => setModal(prev => ({ ...prev, isOpen: false }));
+  
   useEffect(() => {
     loadAllData();
     loadUserData();
@@ -134,7 +169,8 @@ const PharmacistInventoryDashboard: React.FC = () => {
 
   useEffect(() => {
     if (activeTab !== 'verify') stopCamera();
-  }, [activeTab]);
+    inspectStopCamera();
+  }, [activeTab, stopCamera, inspectStopCamera]);
   
   const loadUserData = () => {
     const userData = localStorage.getItem('user');
@@ -240,7 +276,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
       setSelectedMedicine('');
       setQuantity(100);
       setShowCreateOrderModal(false);
-      alert('✅ Order created successfully!');
+      showModal('Order Placed', '✅ Order created successfully!', 'success');
     } catch (error: any) {
       console.error('Error creating order:', error);
       console.error('Error response:', error.response?.data);
@@ -248,7 +284,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
         || error.response?.data?.detail
         || JSON.stringify(error.response?.data)
         || 'Failed to create order';
-      alert(`❌ ${errorMessage}`);
+      showModal('Order Creation Failed', errorMessage, 'error');
     } finally {
       setSubmitting(false);
     }
@@ -270,7 +306,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
   
   const handleVerifyReceipt = async () => {
     if (!scannedUuid.trim()) {
-      alert('Please enter a manifest UUID');
+      showModal('Input Required', 'Please enter a manifest UUID', 'warning');
       return;
     }
     
@@ -289,6 +325,93 @@ const PharmacistInventoryDashboard: React.FC = () => {
       });
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const openInspectModal = async (order: SupplyOrder) => {
+    setInspectingOrder(order);
+    setLocked(true);
+    setShowInspectModal(true);
+    setScannedPhysicalUuid('');
+    setVerificationMatch(null);
+    
+    setTimeout(() => setLocked(false), 300);
+    
+    try {
+      setSubmitting(true);
+      const details = await getOrderManifest(order.id);
+      setManifestDetails(details);
+    } catch (error: any) {
+      console.error('Error fetching manifest:', error);
+      showModal('Failed to Load Manifest', error.response?.data?.error || 'Failed to load manifest details', 'error');
+      setShowInspectModal(false);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  
+  const closeInspectModal = () => {
+    setShowInspectModal(false);
+    inspectStopCamera();
+    setInspectingOrder(null);
+    setManifestDetails(null);
+    setScannedPhysicalUuid('');
+    setVerificationMatch(null);
+    setLocked(true);
+  };
+  
+  const handlePhysicalScan = (scannedValue: string) => {
+    setScannedPhysicalUuid(scannedValue);
+    if (!manifestDetails) return;
+    if (scannedValue.trim().toLowerCase() === manifestDetails.manifest_id.toLowerCase()) {
+      setVerificationMatch('match');
+    } else {
+      setVerificationMatch('mismatch');
+    }
+  };
+  
+  useEffect(() => {
+    onInspectDetectedRef.current = handlePhysicalScan;
+  }, [manifestDetails]);
+  
+  const handleCompleteVerification = async () => {
+    if (verificationMatch === 'match' && manifestDetails && inspectingOrder) {
+      try {
+        setSubmitting(true);
+        await verifyReceipt({ scanned_uuid: manifestDetails.manifest_id });
+        closeInspectModal();
+        await loadAllData();
+        showModal('Verification Complete', '✓ Shipment successfully verified and received!', 'success');
+      } catch (error: any) {
+        console.error('Error verifying receipt:', error);
+        showModal('Verification Failed', error.response?.data?.error || 'Failed to verify receipt', 'error');
+      } finally {
+        setSubmitting(false);
+      }
+    }
+  };
+
+  const handleRejectShipment = async () => {
+    if (manifestDetails && inspectingOrder) {
+      try {
+        setSubmitting(true);
+        // Create a flag on the manifest indicating poor quality or counterfeit suspicion which subtracts points
+        await createFlag({
+          lot: manifestDetails.manifest_id,
+          severity: 'HIGH',
+          reporter_type: 'Pharmacist',
+          issue_type: 'Quality Issue',
+          description: 'Shipment rejected during pre-receipt validation due to existing trust score warnings.',
+        });
+        closeInspectModal();
+        await loadAllData();
+        showModal('Shipment Rejected', 'Shipment has been quarantined and flagged.', 'warning');
+      } catch (error: any) {
+        console.error('Error rejecting shipment:', error);
+        showModal('Rejection Failed', error.response?.data?.error || 'Failed to reject shipment', 'error');
+      } finally {
+        setSubmitting(false);
+      }
     }
   };
 
@@ -439,8 +562,12 @@ const PharmacistInventoryDashboard: React.FC = () => {
           </button>
           
           <button
-            onClick={() => navigate('/pharmacist/orders')}
-            className="flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white"
+            onClick={() => setActiveTab('orders')}
+            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
+              activeTab === 'orders'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
+            }`}
           >
             <Icon name="local_shipping" />
             <span className="text-sm font-medium">Orders</span>
@@ -533,6 +660,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
               {activeTab === 'verify'    && 'Verify Batch'}
               {activeTab === 'report'   && 'Report Suspect Product'}
               {activeTab === 'receipts' && 'Verified Receipts'}
+              {activeTab === 'orders'   && 'Supply Chain Orders'}
             </h2>
             {activeTab === 'dashboard' && stats.shippedOrders > 0 && (
               <span className="px-3 py-1 rounded-full bg-[#0055FF]/20 text-[#0055FF] border border-[#0055FF]/30 text-xs font-bold flex items-center gap-1">
@@ -851,6 +979,88 @@ const PharmacistInventoryDashboard: React.FC = () => {
                   Submit Report
                 </button>
               </form>
+            </div>
+          )}
+
+          {/* ══ ORDERS TAB ═══════════════════════════════════════════════════ */}
+          {activeTab === 'orders' && (
+            <div className="max-w-5xl mx-auto space-y-6">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowCreateOrderModal(true)}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary/90 transition-all shadow-lg shadow-primary/20"
+                >
+                  <PlusCircle className="w-4 h-4" />
+                  New Order
+                </button>
+              </div>
+
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 overflow-hidden">
+                {orders.length === 0 ? (
+                  <div className="p-16 text-center flex flex-col items-center gap-4">
+                    <Package className="w-16 h-16 text-gray-600" />
+                    <div>
+                      <p className="text-white font-bold">No orders yet</p>
+                      <p className="text-gray-400 text-sm mt-1">Place your first supply order to get started.</p>
+                    </div>
+                    <button
+                      onClick={() => setShowCreateOrderModal(true)}
+                      className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 font-bold text-sm"
+                    >
+                      Place First Order
+                    </button>
+                  </div>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-[#0a0e1a] border-b border-gray-700">
+                      <tr>
+                        <th className="px-5 py-3 text-left text-xs font-bold text-gray-400 uppercase">Order ID</th>
+                        <th className="px-5 py-3 text-left text-xs font-bold text-gray-400 uppercase">Distributor</th>
+                        <th className="px-5 py-3 text-left text-xs font-bold text-gray-400 uppercase">Items</th>
+                        <th className="px-5 py-3 text-left text-xs font-bold text-gray-400 uppercase">Status</th>
+                        <th className="px-5 py-3 text-left text-xs font-bold text-gray-400 uppercase">Date</th>
+                        <th className="px-5 py-3 text-left text-xs font-bold text-gray-400 uppercase">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-700">
+                      {orders.map((order) => {
+                        return (
+                          <tr key={order.id} className="hover:bg-[#0a0e1a]/50 transition-colors">
+                            <td className="px-5 py-4 text-sm font-mono text-gray-400">{order.id.slice(0, 8)}…</td>
+                            <td className="px-5 py-4 text-sm font-bold text-white">{order.distributor_name}</td>
+                            <td className="px-5 py-4 text-sm text-gray-400 max-w-[200px] truncate">
+                              {order.items?.map(i => `${i.name ?? i.medicine_id} (${i.quantity})`).join(', ')}
+                            </td>
+                            <td className="px-5 py-4">
+                              {getStatusBadge(order.status)}
+                            </td>
+                            <td className="px-5 py-4 text-sm text-gray-400">
+                              {new Date(order.created_at).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' })}
+                            </td>
+                            <td className="px-5 py-4">
+                              {order.status === 'SHIPPED' && (
+                                <button
+                                  onClick={() => openInspectModal(order)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 font-bold text-xs transition-colors"
+                                >
+                                  <Lock className="w-3.5 h-3.5" />
+                                  Inspect Shipment
+                                </button>
+                              )}
+                              {order.status === 'DELIVERED' && (
+                                <span className="text-green-400 font-bold text-xs flex items-center gap-1">
+                                  <ClipboardCheck className="w-3.5 h-3.5" />
+                                  Received
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
             </div>
           )}
 
@@ -1456,6 +1666,232 @@ const PharmacistInventoryDashboard: React.FC = () => {
           </div>
         </div>
       )}
+      {/* Digital Bill of Lading Modal */}
+      {showInspectModal && inspectingOrder && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-[#151923] border border-blue-500/30 rounded-2xl p-8 max-w-5xl w-full shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-2xl font-bold text-blue-400 flex items-center gap-3">
+                {locked ? <Lock className="w-7 h-7" /> : <LockOpen className="w-7 h-7" />}
+                Secure Digital Bill of Lading
+              </h3>
+              <button onClick={closeInspectModal} className="text-gray-400 hover:text-white">
+                ✕
+              </button>
+            </div>
+            
+            {submitting && !manifestDetails ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-12 h-12 text-primary animate-spin" />
+              </div>
+            ) : manifestDetails ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Left Column: Digital Truth */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-bold text-blue-400">📘 Digital Truth</h4>
+                  
+                  <div className="bg-[#0a0e1a] border border-gray-700 rounded-xl p-4 space-y-3">
+                    <div>
+                      <label className="text-xs text-gray-400 uppercase font-bold">Medicine</label>
+                      <p className="text-white font-bold">{manifestDetails.medicine_name}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-xs text-gray-400 uppercase font-bold">Batch #</label>
+                        <p className="text-white font-mono text-sm">{manifestDetails.batch_number}</p>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-400 uppercase font-bold">Expiry</label>
+                        <p className="text-white font-mono text-sm">{manifestDetails.expiry_date}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-center py-5 bg-[#151923] rounded-xl border border-gray-700/50">
+                      <label className="text-xs text-gray-400 uppercase font-bold mb-4">Trust Score Assessment</label>
+                      <TrustGauge score={parseFloat(manifestDetails.trust_score.toString())} size={150} strokeWidth={14} />
+                    </div>
+                    
+                    <div>
+                      <label className="text-xs text-gray-400 uppercase font-bold">Digital Signature (Ed25519)</label>
+                      <p className="text-xs text-gray-500 font-mono break-all">
+                        {manifestDetails.digital_signature.slice(0, 64)}...
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* QR Code */}
+                  <div className="bg-[#0a0e1a] border border-gray-700 rounded-xl p-6 flex flex-col items-center">
+                    <label className="text-xs text-gray-400 uppercase font-bold mb-3">Digital QR Code</label>
+                    <div className="bg-white p-4 rounded-lg">
+                      <QRCode value={manifestDetails.qr_code_content} size={180} level="H" />
+                    </div>
+                    <p className="text-xs text-gray-500 font-mono mt-3">{manifestDetails.manifest_id}</p>
+                  </div>
+                </div>
+                
+                {/* Right Column: Physical Verification */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-bold text-yellow-400">📦 Physical Check</h4>
+                  
+                  <div className="bg-[#0a0e1a] border border-gray-700 rounded-xl p-4">
+                    <label className="block text-sm text-gray-400 mb-2 font-bold">Scan Physical Package QR</label>
+                    <input
+                      type="text"
+                      value={scannedPhysicalUuid}
+                      onChange={(e) => handlePhysicalScan(e.target.value)}
+                      placeholder="Scan or paste manifest UUID..."
+                      className="w-full px-4 py-3 bg-[#151923] border border-gray-700 rounded-lg text-white focus:ring-2 focus:ring-blue-500/50 font-mono text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-2">Use your scanner or manually enter the UUID from the physical package</p>
+                  </div>
+                  
+                  <div className="bg-[#151923] border border-gray-700 rounded-xl overflow-hidden relative">
+                    {/* Camera View for Inspection */}
+                    <div className="aspect-video bg-black relative flex items-center justify-center">
+                      {!inspectCameraActive && !inspectCameraError && (
+                        <div className="text-center p-6 w-full h-full flex flex-col items-center justify-center border-2 border-dashed border-gray-700/50 rounded-lg">
+                          <Camera className="w-10 h-10 text-gray-600 mb-3" />
+                          <button
+                            onClick={inspectStartCamera}
+                            className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 border border-blue-500/30 px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                          >
+                            Use Camera Scanner
+                          </button>
+                        </div>
+                      )}
+                      
+                      {inspectCameraError && (
+                        <div className="text-center p-6">
+                            <AlertTriangle className="w-10 h-10 text-red-500/80 mx-auto mb-3" />
+                            <p className="text-red-400 text-sm mb-3">{inspectCameraError}</p>
+                            <button
+                              onClick={inspectStartCamera}
+                              className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-1.5 rounded-lg transition-colors text-sm"
+                            >
+                              Try Again
+                            </button>
+                        </div>
+                      )}
+                      
+                      <video
+                        ref={inspectVideoRef}
+                        className={`w-full h-full object-cover ${!inspectCameraActive ? 'hidden' : ''}`}
+                      />
+                      
+                      {inspectCameraActive && (
+                        <div className="absolute inset-0 pointer-events-none border-2 border-blue-500/30">
+                          {/* Optional overlay guides */}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {inspectCameraActive && (
+                      <div className="p-3 bg-[#0a0e1a] border-t border-gray-700 flex justify-between items-center">
+                        <div className="flex items-center gap-2 text-green-400">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                          </span>
+                          <span className="text-xs font-bold tracking-wide animate-pulse">Scanning package...</span>
+                        </div>
+                        <button
+                          onClick={inspectStopCamera}
+                          className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors"
+                        >
+                          <StopCircle className="w-4 h-4" />
+                          <span className="text-xs font-bold">Stop</span>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Verification Result */}
+                  {verificationMatch && (
+                    <div className={`p-6 rounded-xl border-2 ${
+                      verificationMatch === 'match' 
+                        ? 'bg-green-500/10 border-green-500' 
+                        : 'bg-red-500/10 border-red-500'
+                    }`}>
+                      <div className="flex items-center gap-3 mb-3">
+                        {verificationMatch === 'match' ? (
+                          <CheckCircle className="w-8 h-8 text-green-400" />
+                        ) : (
+                          <AlertTriangle className="w-8 h-8 text-red-400" />
+                        )}
+                        <h5 className={`text-xl font-bold ${
+                          verificationMatch === 'match' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {verificationMatch === 'match' 
+                            ? '✓ Shipment Authenticated' 
+                            : '⚠️ TAMPER WARNING'
+                          }
+                        </h5>
+                      </div>
+                      
+                      <p className={`text-sm ${
+                        verificationMatch === 'match' ? 'text-green-300' : 'text-red-300'
+                      }`}>
+                        {verificationMatch === 'match' 
+                          ? 'Physical batch matches digital order. Chain of custody is secure.' 
+                          : 'Physical batch does NOT match digital order. Do not accept this shipment!'
+                        }
+                      </p>
+                      
+                      {verificationMatch === 'match' && (
+                        <div className="w-full mt-6 space-y-4">
+                          {parseFloat(manifestDetails.trust_score.toString()) >= 90 ? (
+                            <>
+                              <p className="text-sm text-green-300 font-bold mb-1 text-center">Chain of Custody Verified. Do you accept this delivery?</p>
+                              <button
+                                onClick={handleCompleteVerification}
+                                disabled={submitting}
+                                className="w-full px-4 py-4 bg-[#00C853] text-white rounded-xl hover:bg-[#00C853]/90 font-bold transition-all disabled:opacity-50 shadow-lg shadow-[#00C853]/20"
+                              >
+                                {submitting ? 'Processing...' : 'Generate Secure Receipt'}
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-1 text-center">
+                                <p className="text-sm text-red-400 font-bold">WARNING: This batch has active flags. Quarantine advised.</p>
+                              </div>
+                              <button
+                                onClick={handleRejectShipment}
+                                disabled={submitting}
+                                className="w-full px-4 py-4 bg-red-500 text-white rounded-xl hover:bg-red-600 font-bold transition-all disabled:opacity-50 shadow-lg shadow-red-500/20"
+                              >
+                                {submitting ? 'Processing...' : 'Reject & Flag Shipment'}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {!verificationMatch && (
+                    <div className="p-6 rounded-xl bg-[#0a0e1a] border border-gray-700 text-center">
+                      <QrCode className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                      <p className="text-gray-400 text-sm">Scan the physical package to verify authenticity</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Error / Success Modal */}
+      <ErrorModal
+        isOpen={modal.isOpen}
+        onClose={closeModal}
+        title={modal.title}
+        message={modal.message}
+        type={modal.type}
+      />
     </div>
   );
 };

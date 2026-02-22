@@ -16,7 +16,7 @@ from .serializers import (
 from manifests.models import LotManifest
 from manifests.serializers import LotManifestSerializer
 from pharmaceuticals.models import Medicine
-from accounts.permissions import IsPharmacist, IsDistributor
+from accounts.permissions import IsPharmacist, IsDistributor, IsAdminOrPharmacist
 
 
 class SupplyOrderViewSet(viewsets.ModelViewSet):
@@ -143,16 +143,16 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
             'order_status': order.status,
         }, status=status.HTTP_200_OK)
     
-    @action(detail=True, methods=['get'], permission_classes=[IsPharmacist])
+    @action(detail=True, methods=['get'], permission_classes=[IsAdminOrPharmacist])
     def manifest_details(self, request, pk=None):
         """
         Digital Bill of Lading endpoint.
         
         Returns secure manifest details for pharmacist verification of physical shipments.
-        Only accessible by the pharmacist who owns the order.
+        Only accessible by the pharmacist who owns the order or an Admin.
         
         Permissions:
-            - Must be the pharmacist assigned to the order
+            - Must be the pharmacist assigned to the order or an Admin
             - Order must be SHIPPED or DELIVERED
             
         Returns:
@@ -166,8 +166,8 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
         """
         order = self.get_object()
         
-        # Verify pharmacist owns this order
-        if order.pharmacist != request.user:
+        # Verify pharmacist owns this order or is admin
+        if request.user.role != 'Admin' and order.pharmacist != request.user:
             return Response(
                 {'error': 'You can only inspect your own orders'},
                 status=status.HTTP_403_FORBIDDEN

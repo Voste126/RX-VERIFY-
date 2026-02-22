@@ -9,10 +9,10 @@ import CryptographicVaultPage from './components/CryptographicVaultPage'
 import QRCodeDisplayPage from './components/QRCodeDisplayPage'
 import PharmacistInventoryDashboard from './components/PharmacistInventoryDashboard'
 import DistributorDashboard from './components/DistributorDashboard'
-import PharmacistOrderDashboard from './components/PharmacistOrderDashboard'
 import DistributorOrderDashboard from './components/DistributorOrderDashboard'
 import PatientDashboard from './components/PatientDashboard'
 import AdminDashboard from './components/AdminDashboard'
+import PatientScanResult from './components/PatientScanResult'
 
 function App() {
   return (
@@ -33,10 +33,10 @@ function App() {
         
         {/* Pharmacist Routes */}
         <Route path="/pharmacist/dashboard" element={<PharmacistInventoryDashboard />} />
-        <Route path="/pharmacist/orders" element={<PharmacistOrderDashboard />} />
         
         {/* Patient Routes */}
         <Route path="/patient/dashboard" element={<PatientDashboard />} />
+        <Route path="/patient/scan/:uuid" element={<PatientScanResult />} />
 
         {/* Admin Routes */}
         <Route path="/admin/dashboard" element={<AdminDashboard />} />

@@ -87,14 +87,17 @@ class LotManifest(models.Model):
     
     def calculate_trust_score(self):
         """
-        Calculate trust score based on unresolved crowd flags.
+        Calculate trust score based on unresolved crowd flags and receipt events.
         
         Trust Score Algorithm:
+        - Cryptographic Validation: 0.00 instantly if signature fails
         - Base score: 100.00
-        - CRITICAL flags: -15.00 each
-        - HIGH flags: -10.00 each
-        - MEDIUM flags: -5.00 each
-        - LOW flags: -2.00 each
+        - CRITICAL flags: -30.00 each
+        - HIGH flags: -20.00 each
+        - MEDIUM flags: -15.00 each
+        - LOW flags: -5.00 each
+        - Receipt Events: +2.00 each
+        - Maximum score: 100.00
         - Minimum score: 0.00 (cannot go below zero)
         
         Returns:
@@ -102,18 +105,22 @@ class LotManifest(models.Model):
         """
         from decimal import Decimal
         
+        # 1. Cryptographic Failure Check
+        if not self.verify_signature():
+            return Decimal('0.00')
+        
         # Start with base score
         base_score = Decimal('100.00')
         
         # Get all unresolved flags for this lot
         unresolved_flags = self.crowd_flags.filter(is_resolved=False)
         
-        # Severity penalties
+        # Severity penalties updated per Phase 1 requirements
         severity_penalties = {
-            'CRITICAL': Decimal('15.00'),
-            'HIGH': Decimal('10.00'),
-            'MEDIUM': Decimal('5.00'),
-            'LOW': Decimal('2.00'),
+            'CRITICAL': Decimal('30.00'),
+            'HIGH': Decimal('20.00'),
+            'MEDIUM': Decimal('15.00'),
+            'LOW': Decimal('5.00'),
         }
         
         # Calculate total deductions
@@ -121,10 +128,20 @@ class LotManifest(models.Model):
         for flag in unresolved_flags:
             penalty = severity_penalties.get(flag.severity, Decimal('5.00'))
             total_deduction += penalty
+            
+        # Calculate total additions from receipt events
+        # Note: self.receipt_events is a related_name mapping to logs.ReceiptEvent
+        total_addition = Decimal(str(self.receipt_events.count() * 2))
         
-        # Calculate final score (ensure it doesn't go below 0)
-        final_score = max(Decimal('0.00'), base_score - total_deduction)
+        # Calculate final score combining base, deductions and additions
+        final_score = base_score - total_deduction + total_addition
         
+        # Cap the score between 0.00 and 100.00
+        if final_score > Decimal('100.00'):
+            final_score = Decimal('100.00')
+        elif final_score < Decimal('0.00'):
+            final_score = Decimal('0.00')
+            
         return final_score
     
     def update_trust_score(self):

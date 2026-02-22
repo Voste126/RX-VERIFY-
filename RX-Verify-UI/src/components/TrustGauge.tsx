@@ -1,30 +1,95 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface TrustGaugeProps {
   score: number;
+  size?: number;
+  strokeWidth?: number;
 }
 
-const TrustGauge: React.FC<TrustGaugeProps> = ({ score }) => {
-  // Calculate rotation based on score (0-100)
-  // 0 = -90deg (left), 100 = 90deg (right)
-  const rotation = (score / 100) * 180 - 90;
+const TrustGauge: React.FC<TrustGaugeProps> = ({ 
+  score, 
+  size = 200, 
+  strokeWidth = 16 
+}) => {
+  const [animatedScore, setAnimatedScore] = useState(0);
+
+  // Easing and number count up animation
+  useEffect(() => {
+    const startTime = Date.now();
+    const duration = 1500; // 1.5 seconds target duration
+    
+    const animate = () => {
+      const now = Date.now();
+      const progress = Math.min((now - startTime) / duration, 1);
+      
+      // Easing function (easeOutCubic)
+      const easeProgress = 1 - Math.pow(1 - progress, 3);
+      
+      setAnimatedScore(Math.round(score * easeProgress));
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      }
+    };
+    
+    requestAnimationFrame(animate);
+  }, [score]);
+
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  
+  // Offset needs to be initialized completely hidden, then animates when score changes
+  const [animatedOffset, setAnimatedOffset] = useState(circumference);
+
+  useEffect(() => {
+    // Small timeout ensures CSS transition catches the change from initial state
+    const timeout = setTimeout(() => {
+      setAnimatedOffset(circumference - (score / 100) * circumference);
+    }, 50);
+    return () => clearTimeout(timeout);
+  }, [score, circumference]);
+
+  let color = '#D50000'; // Danger Red
+  if (score >= 90) color = '#00C853'; // Success Green
+  else if (score >= 70) color = '#FFD60A'; // Warning Yellow
 
   return (
-    <div className="relative w-full max-w-[400px] h-[200px] mx-auto">
-      {/* The Gauge Arc */}
-      <div className="absolute inset-0 gauge-arc"></div>
-      {/* The Needle */}
-      <div 
-        className="absolute bottom-0 left-1/2 w-[4px] h-[180px] bg-white origin-bottom rounded-full shadow-[0_0_10px_rgba(255,255,255,0.5)] transition-transform duration-1000 ease-out z-10"
-        style={{ transform: `translateX(-50%) rotate(${rotation}deg)` }}
+    <div className="relative flex items-center justify-center font-display" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="transform -rotate-90 drop-shadow-xl"
       >
-        <div className="absolute -top-1 -left-1.5 size-4 bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
+        {/* Background Circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-gray-800"
+        />
+        {/* Animated Progress Circle */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={animatedOffset}
+          style={{ transition: 'stroke-dashoffset 1.5s cubic-bezier(0.215, 0.610, 0.355, 1.00)' }}
+        />
+      </svg>
+      {/* Score Text inside gauge */}
+      <div className="absolute flex flex-col items-center justify-center">
+        <span className="text-4xl font-black tabular-nums tracking-tight" style={{ color }}>{animatedScore}</span>
+        <span className="text-[10px] text-gray-400 font-bold tracking-widest uppercase mt-1">Trust Score</span>
       </div>
-      {/* Center Hub */}
-      <div className="absolute bottom-[-10px] left-1/2 -translate-x-1/2 w-8 h-4 bg-[#1b1f28] rounded-t-full border-t border-gray-700 z-20"></div>
-      {/* Labels */}
-      <div className="absolute -left-8 bottom-0 text-danger font-bold">0</div>
-      <div className="absolute -right-8 bottom-0 text-success font-bold">100</div>
     </div>
   );
 };

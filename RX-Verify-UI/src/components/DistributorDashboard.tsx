@@ -6,7 +6,8 @@ import Icon from './Icon';
 import ErrorModal from './ErrorModal';
 import { distributorService, type Medicine, type LotManifest, type DistributorEntity } from '../services/distributor';
 import { authService } from '../services/auth';
-import { getDistributorOrders, fulfillOrder, type SupplyOrder, type FulfillOrderRequest } from '../services/orders';
+import { getDistributorOrders, fulfillOrder, type SupplyOrder } from '../services/orders';
+import TrustBadge from './TrustBadge';
 
 interface DashboardStats {
   totalMedicines: number;
@@ -1120,26 +1121,36 @@ const DistributorDashboard: React.FC = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-700">
-                      {manifests.map((manifest) => (
-                        <tr key={manifest.id} className="hover:bg-[#0a0e1a]/50 transition-colors">
-                          <td className="px-6 py-4 text-sm font-mono font-bold text-white">{manifest.batch_number}</td>
-                          <td className="px-6 py-4 text-sm text-gray-400">{manifest.expiry_date}</td>
-                          <td className="px-6 py-4 text-sm">
-                            <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30 font-bold text-xs">
-                              {manifest.trust_score}%
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-sm font-mono text-gray-400">{manifest.digital_signature.substring(0, 16)}...</td>
-                          <td className="px-6 py-4 text-sm">
-                            <button
-                              onClick={() => navigate(`/distributor/qr-codes/${manifest.id}`)}
-                              className="text-primary hover:text-primary/80 font-bold"
-                            >
-                              Generate QR
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
+                      {[...manifests].sort((a, b) => {
+                        const scoreA = parseFloat(a.trust_score.toString());
+                        const scoreB = parseFloat(b.trust_score.toString());
+                        if (scoreA < 80 && scoreB >= 80) return -1;
+                        if (scoreA >= 80 && scoreB < 80) return 1;
+                        return 0;
+                      }).map((manifest) => {
+                        const isAnomalous = parseFloat(manifest.trust_score.toString()) < 80;
+                        return (
+                          <tr 
+                            key={manifest.id} 
+                            className={`transition-all ${isAnomalous ? 'bg-red-900/10 hover:bg-red-900/20 animate-[pulse_3s_ease-in-out_infinite] border-l-4 border-l-red-500' : 'hover:bg-[#0a0e1a]/50'}`}
+                          >
+                            <td className="px-6 py-4 text-sm font-mono font-bold text-white">{manifest.batch_number}</td>
+                            <td className="px-6 py-4 text-sm text-gray-400">{manifest.expiry_date}</td>
+                            <td className="px-6 py-4 text-sm">
+                              <TrustBadge score={manifest.trust_score} />
+                            </td>
+                            <td className="px-6 py-4 text-sm font-mono text-gray-400">{manifest.digital_signature.substring(0, 16)}...</td>
+                            <td className="px-6 py-4 text-sm">
+                              <button
+                                onClick={() => navigate(`/distributor/qr-codes/${manifest.id}`)}
+                                className="text-primary hover:text-primary/80 font-bold"
+                              >
+                                Generate QR
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

@@ -30,16 +30,19 @@ class LotManifestSerializer(serializers.ModelSerializer):
     is_authentic = serializers.SerializerMethodField(
         help_text="Boolean result of signature verification"
     )
+    score_breakdown = serializers.SerializerMethodField(
+        help_text="Detailed breakdown of trust score components"
+    )
     
     class Meta:
         model = LotManifest
         fields = [
             'id', 'batch_number', 'expiry_date', 'digital_signature', 
-            'trust_score', 'medicine', 'medicine_name', 'distributor', 
+            'trust_score', 'score_breakdown', 'medicine', 'medicine_name', 'distributor', 
             'distributor_name', 'is_authentic'
         ]
         # Immutable fields - cannot be updated by user
-        read_only_fields = ['id', 'digital_signature', 'trust_score', 'is_authentic']
+        read_only_fields = ['id', 'digital_signature', 'trust_score', 'score_breakdown', 'is_authentic']
         extra_kwargs = {
             'digital_signature': {'required': False},
             'trust_score': {'required': False},
@@ -140,4 +143,47 @@ class LotManifestSerializer(serializers.ModelSerializer):
             bool: True if signature is valid, False otherwise
         """
         return obj.verify_signature()
+
+    def get_score_breakdown(self, obj):
+        """
+        Return a detailed breakdown of the trust score calculation.
+        """
+        from decimal import Decimal
+        
+        base = 100.0
+        
+        if not obj.verify_signature():
+            return {
+                "base": base,
+                "flag_deductions": 0.0,
+                "receipt_additions": 0.0,
+                "active_flags": [],
+                "trust_score": 0.0,
+                "is_authentic": False
+            }
+            
+        unresolved_flags = obj.crowd_flags.filter(is_resolved=False)
+        severity_penalties = {
+            'CRITICAL': Decimal('30.00'),
+            'HIGH': Decimal('20.00'),
+            'MEDIUM': Decimal('15.00'),
+            'LOW': Decimal('5.00'),
+        }
+        
+        flag_deductions = Decimal('0.00')
+        active_flags = []
+        for flag in unresolved_flags:
+            flag_deductions += severity_penalties.get(flag.severity, Decimal('5.00'))
+            active_flags.append(flag.issue_type)
+            
+        receipt_additions = Decimal(str(obj.receipt_events.count() * 2))
+        
+        return {
+            "base": base,
+            "flag_deductions": float(-flag_deductions),
+            "receipt_additions": float(receipt_additions),
+            "active_flags": active_flags,
+            "trust_score": float(obj.trust_score),
+            "is_authentic": True
+        }
 
