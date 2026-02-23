@@ -54,6 +54,7 @@ const PharmacistOrderDashboard: React.FC = () => {
   // Error Modal state
   const showModal = (title: string, message: string, type: 'error' | 'success' | 'warning' | 'info' = 'info') => {
     // Legacy generic modal hook is no longer used here
+    console.log(`[${type}] ${title}: ${message}`);
   };
   
   useEffect(() => {
@@ -131,7 +132,7 @@ const PharmacistOrderDashboard: React.FC = () => {
     
     try {
       setSubmitting(true);
-      const result = await verifyReceipt({ scanned_uuid: manifestDetails.manifest_id });
+      await verifyReceipt({ scanned_uuid: manifestDetails.manifest_id });
       // setVerificationResult(result); // No longer storing result in state
       
       // Refresh orders to update status

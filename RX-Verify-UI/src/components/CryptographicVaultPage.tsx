@@ -71,7 +71,7 @@ const CryptographicVaultPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
-  const copyToClipboard = (text: string, label: string) => {
+  const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     // Could add toast notification here
   };
@@ -148,7 +148,7 @@ const CryptographicVaultPage: React.FC = () => {
                     <span className="text-blue-400 font-mono text-sm truncate">{publicKey}</span>
                     <button
                       className="ml-3 text-gray-500 hover:text-primary transition-colors"
-                      onClick={() => copyToClipboard(publicKey, 'Public key')}
+                      onClick={() => copyToClipboard(publicKey)}
                     >
                       <Icon name="content_copy" className="text-lg" />
                     </button>
@@ -172,7 +172,7 @@ const CryptographicVaultPage: React.FC = () => {
                         <span className="text-red-300 font-mono text-sm truncate">{privateKey}</span>
                         <button
                           className="ml-3 text-gray-500 hover:text-primary transition-colors"
-                          onClick={() => copyToClipboard(privateKey, 'Private key')}
+                          onClick={() => copyToClipboard(privateKey)}
                         >
                           <Icon name="content_copy" className="text-lg" />
                         </button>
