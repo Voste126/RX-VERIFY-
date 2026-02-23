@@ -12,4 +12,3 @@ distributor, _ = User.objects.get_or_create(username='testdistributor', role='Di
 client.force_login(distributor)
 
 response = client.post('/api/flags/', {'lot': '3d02cd19-edc6-4f9e-b07e-b9b89a3d0424'})
-print(f"Status: {response.status_code}")

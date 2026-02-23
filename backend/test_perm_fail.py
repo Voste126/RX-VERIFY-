@@ -22,6 +22,3 @@ import logging
 logging.basicConfig(level=logging.WARNING)
 
 response = view(request)
-print(f"Response: {response.status_code}")
-print(f"Data: {response.data}")
-print(f"Data length: {len(response.rendered_content)}")

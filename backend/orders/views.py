@@ -16,7 +16,7 @@ from .serializers import (
 from manifests.models import LotManifest
 from manifests.serializers import LotManifestSerializer
 from pharmaceuticals.models import Medicine
-from accounts.permissions import IsPharmacist, IsDistributor, IsAdminOrPharmacist
+from accounts.permissions import IsPharmacist, IsDistributor, IsAdminOrPharmacist, IsAdminOrReadOnly
 
 
 class SupplyOrderViewSet(viewsets.ModelViewSet):
@@ -103,10 +103,6 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
         manifest_id = serializer.validated_data['manifest_id']
         
         # DEBUG: Log what we're checking
-        print(f"[FULFILL DEBUG] User: {request.user.username}")
-        print(f"[FULFILL DEBUG] Distributor entity from user: {distributor_entity.id} ({distributor_entity.name})")
-        print(f"[FULFILL DEBUG] Order distributor: {order.distributor.id} ({order.distributor.name})")
-        print(f"[FULFILL DEBUG] Manifest ID requested: {manifest_id}")
         
         # Get existing manifest and verify ownership
         try:
@@ -114,15 +110,7 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
                 id=manifest_id,
                 distributor=distributor_entity
             )
-            print(f"[FULFILL DEBUG] ✓ Manifest found: {manifest.batch_number}")
         except LotManifest.DoesNotExist:
-            print(f"[FULFILL DEBUG] ✗ Manifest NOT FOUND with distributor={distributor_entity.id}")
-            # Check if manifest exists at all
-            try:
-                manifest_check = LotManifest.objects.get(id=manifest_id)
-                print(f"[FULFILL DEBUG]   But manifest EXISTS with distributor={manifest_check.distributor.id} ({manifest_check.distributor.name})")
-            except LotManifest.DoesNotExist:
-                print(f"[FULFILL DEBUG]   Manifest doesn't exist in database at all!")
             return Response(
                 {'error': 'Manifest not found or not owned by your distributor entity'},
                 status=status.HTTP_404_NOT_FOUND
@@ -200,7 +188,7 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
             'medicine_name': manifest.medicine.name if manifest.medicine else 'Unknown'
         }, status=status.HTTP_200_OK)
     
-    @action(detail=False, methods=['post'], permission_classes=[IsAdminOrPharmacist])
+    @action(detail=False, methods=['post'], permission_classes=[IsPharmacist])
     def verify_receipt(self, request):
         """
         Pharmacist secure receipt verification endpoint.

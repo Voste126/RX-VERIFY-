@@ -9,7 +9,6 @@ from manifests.models import LotManifest
 from datetime import date, timedelta
 import uuid
 
-print("Creating sample data...")
 
 # Create users if they don't exist
 pharmacist, created = User.objects.get_or_create(
@@ -23,9 +22,7 @@ pharmacist, created = User.objects.get_or_create(
 if created:
     pharmacist.set_password('password123')
     pharmacist.save()
-    print(f"✓ Created pharmacist: {pharmacist.username}")
 else:
-    print(f"✓ Pharmacist already exists: {pharmacist.username}")
 
 patient, created = User.objects.get_or_create(
     username='patient1',
@@ -38,9 +35,7 @@ patient, created = User.objects.get_or_create(
 if created:
     patient.set_password('password123')
     patient.save()
-    print(f"✓ Created patient: {patient.username}")
 else:
-    print(f"✓ Patient already exists: {patient.username}")
 
 # Create manufacturer
 manufacturer, created = Manufacturer.objects.get_or_create(
@@ -50,7 +45,6 @@ manufacturer, created = Manufacturer.objects.get_or_create(
         'contact_email': 'contact@pharmaco.com'
     }
 )
-print(f"✓ Manufacturer: {manufacturer.name}")
 
 # Create distributor with public key
 distributor, created = Distributor.objects.get_or_create(
@@ -61,7 +55,6 @@ distributor, created = Distributor.objects.get_or_create(
         'public_key': 'a' * 64  # 64 hex chars for testing
     }
 )
-print(f"✓ Distributor: {distributor.name}")
 
 # Create medicine
 medicine, created = Medicine.objects.get_or_create(
@@ -71,7 +64,6 @@ medicine, created = Medicine.objects.get_or_create(
         'manufacturer': manufacturer
     }
 )
-print(f"✓ Medicine: {medicine.name}")
 
 # Create lot manifest
 if not LotManifest.objects.exists():
@@ -81,12 +73,6 @@ if not LotManifest.objects.exists():
         medicine=medicine,
         distributor=distributor
     )
-    print(f"✓ Created lot: {lot.batch_number}")
 else:
     lot = LotManifest.objects.first()
-    print(f"✓ Using existing lot: {lot.batch_number}")
 
-print("\n✅ Sample data created successfully!")
-print(f"   Pharmacist: {pharmacist.username} / password123")
-print(f"   Patient: {patient.username} / password123")
-print(f"   Lot: {lot.batch_number}")

@@ -19,7 +19,4 @@ request = factory.post('/api/flags/', {
 
 try:
     response = view(request)
-    print(f"Anon Post Response: {response.status_code}")
-    print(f"Anon Post Data: {response.data}")
 except Exception as e:
-    print(f"Anon Post Exception: {e}")

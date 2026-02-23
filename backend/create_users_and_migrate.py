@@ -17,7 +17,6 @@ from django.core.management import call_command
 def create_users_table_and_migrate():
     """Create users table via SQL and complete migrations."""
     
-    print("Step 1: Creating users table via SQL...")
     
     sql = """
     CREATE TABLE IF NOT EXISTS "users" (
@@ -85,48 +84,28 @@ def create_users_table_and_migrate():
     try:
         with connection.cursor() as cursor:
             cursor.execute(sql)
-        print("  ✓ Users table and related tables created")
     except Exception as e:
-        print(f"  ⚠ Warning: {e}")
-        print("  (Table may already exist)")
     
-    print("\nStep 2: Recording accounts migration...")
     if not MigrationRecorder.Migration.objects.filter(app='accounts', name='0001_initial').exists():
         MigrationRecorder.Migration.objects.create(app='accounts', name='0001_initial')
-        print("  ✓ Recorded accounts.0001_initial")
     else:
-        print("  ✓ accounts.0001_initial already recorded")
     
-    print("\nStep 3: Applying remaining migrations...")
     try:
         call_command('migrate', verbosity=2)
-        print("\n  ✓ All migrations applied!")
         return True
     except Exception as e:
-        print(f"\n  ✗ Error applying migrations: {e}")
         return False
 
 if __name__ == '__main__':
     try:
-        print("=" * 60)
-        print("Create Users Table and Apply Migrations")
-        print("=" * 60)
-        print()
         
         success = create_users_table_and_migrate()
         
         if success:
-            print("\n" + "=" * 60)
-            print("✅ SUCCESS! All migrations completed!")
-            print("=" * 60)
             sys.exit(0)
         else:
-            print("\n" + "=" * 60)
-            print("❌ FAILED! See errors above.")
-            print("=" * 60)
             sys.exit(1)
     except Exception as e:
-        print(f"\n❌ Fatal Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

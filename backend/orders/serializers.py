@@ -37,10 +37,7 @@ class SupplyOrderSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """Ensure items are properly saved."""
-        print(f"[SupplyOrderSerializer] Creating order with data: {validated_data}")
-        print(f"[SupplyOrderSerializer] Items in validated_data: {validated_data.get('items')}")
         order = super().create(validated_data)
-        print(f"[SupplyOrderSerializer] Order created with items: {order.items}")
         return order
     
     def to_representation(self, instance):
@@ -72,7 +69,6 @@ class SupplyOrderSerializer(serializers.ModelSerializer):
     
     def validate_items(self, value):
         """Validate items structure."""
-        print(f"[SupplyOrderSerializer] Validating items: {value}")
         if not isinstance(value, list) or len(value) == 0:
             raise serializers.ValidationError("Items must be a non-empty list")
         

@@ -45,7 +45,6 @@ const CryptographicVaultPage: React.FC = () => {
       localStorage.setItem('distributor_id', id);
       
     } catch (err: any) {
-      console.error('Key generation error:', err);
       setError(err.response?.data?.detail || 'Failed to generate cryptographic keys');
     } finally {
       setIsLoading(false);
@@ -75,7 +74,6 @@ const CryptographicVaultPage: React.FC = () => {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     // Could add toast notification here
-    console.log(`${label} copied to clipboard`);
   };
 
   return (

@@ -54,7 +54,6 @@ const PharmacistOrderDashboard: React.FC = () => {
   // Error Modal state
   const showModal = (title: string, message: string, type: 'error' | 'success' | 'warning' | 'info' = 'info') => {
     // Legacy generic modal hook is no longer used here
-    console.log(`Modal [${type}]: ${title} - ${message}`);
   };
   
   useEffect(() => {
@@ -74,7 +73,6 @@ const PharmacistOrderDashboard: React.FC = () => {
       setDistributors(distributorsData);
       setMedicines(medicinesData);
     } catch (error) {
-      console.error('Error loading data:', error);
     } finally {
       setLoading(false);
     }
@@ -113,8 +111,6 @@ const PharmacistOrderDashboard: React.FC = () => {
       
       showModal('Order Placed', '✓ Order placed successfully!', 'success');
     } catch (error: any) {
-      console.error('Error creating order:', error);
-      console.error('Error response:', error.response?.data);
       const errorMessage = error.response?.data?.error 
         || error.response?.data?.detail
         || JSON.stringify(error.response?.data)
@@ -137,12 +133,10 @@ const PharmacistOrderDashboard: React.FC = () => {
       setSubmitting(true);
       const result = await verifyReceipt({ scanned_uuid: manifestDetails.manifest_id });
       // setVerificationResult(result); // No longer storing result in state
-      console.log('Receipt verification result:', result);
       
       // Refresh orders to update status
       await loadData();
     } catch (error: any) {
-      console.error('Error verifying receipt:', error);
       // setVerificationResult({ // No longer storing result in state
       //   status: 'INVALID',
       //   message: error.response?.data?.message || 'Verification failed',
@@ -178,7 +172,6 @@ const PharmacistOrderDashboard: React.FC = () => {
       const details = await getOrderManifest(order.id);
       setManifestDetails(details);
     } catch (error: any) {
-      console.error('Error fetching manifest:', error);
       showModal('Failed to Load Manifest', error.response?.data?.error || 'Failed to load manifest details', 'error');
       setShowInspectModal(false);
     } finally {
@@ -218,7 +211,6 @@ const PharmacistOrderDashboard: React.FC = () => {
         await loadData();
         showModal('Verification Complete', '✓ Shipment successfully verified and received!', 'success');
       } catch (error: any) {
-        console.error('Error verifying receipt:', error);
         showModal('Verification Failed', error.response?.data?.error || 'Failed to verify receipt', 'error');
       } finally {
         setSubmitting(false);

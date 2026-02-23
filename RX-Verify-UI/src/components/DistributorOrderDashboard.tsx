@@ -29,7 +29,6 @@ const DistributorOrderDashboard: React.FC = () => {
       const data = await getDistributorOrders();
       setOrders(data);
     } catch (error) {
-      console.error('Error loading orders:', error);
     } finally {
       setLoading(false);
     }
@@ -76,7 +75,6 @@ const DistributorOrderDashboard: React.FC = () => {
       // Refresh orders
       await loadOrders();
     } catch (error: any) {
-      console.error('Error fulfilling order:', error);
       alert(error.response?.data?.error || 'Failed to fulfill order');
     } finally {
       setSubmitting(false);

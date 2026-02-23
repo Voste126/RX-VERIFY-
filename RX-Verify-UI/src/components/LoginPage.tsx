@@ -49,7 +49,6 @@ const LoginPage: React.FC = () => {
       // Navigate to the appropriate dashboard
       navigate(dashboardPath);
     } catch (err: any) {
-      console.error('Login error:', err);
       const errorData = err.response?.data;
       if (typeof errorData === 'object') {
         // Extract first error message

@@ -13,20 +13,46 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os 
 import dj_database_url
+from dotenv import load_dotenv
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env file at the project root
+dotenv_path = BASE_DIR.parent / '.env'
+load_dotenv(dotenv_path)
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qtotmcze8izydn4hub*%q(0%bt*v4cgm=!vv9k=%t%4h-kdwnm'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-default-key-for-dev-only')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+
+# -----------------------------------------------------------------------------
+# OWASP Hardening: Security Middleware Configurations
+# https://docs.djangoproject.com/en/5.2/ref/middleware/#module-django.middleware.security
+# -----------------------------------------------------------------------------
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Cookies
+CSRF_COOKIE_SECURE = not DEBUG  # True in production (HTTPS), False in dev (HTTP)
+SESSION_COOKIE_SECURE = not DEBUG
+
+# HTTPS Redirect
+SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', str(not DEBUG)).lower() == 'true'
+
+# Strict Transport Security (HSTS) - Highly recommended for production
+if not DEBUG:
+    SECURE_HSTS_SECONDS = 31536000  # 1 year
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 
 # Application definition
@@ -103,7 +129,11 @@ if DATABASE_URL:
     # Use the database settings from DATABASE_URL in production
     DATABASES = {
         
-        'default': dj_database_url.config(default=DATABASE_URL, conn_max_age=600)
+        'default': dj_database_url.config(
+            default=DATABASE_URL, 
+            conn_max_age=600,
+            ssl_require='render.com' in DATABASE_URL
+        )
         
     }
 else:
@@ -129,6 +159,9 @@ AUTH_PASSWORD_VALIDATORS = [
     },
     {
         'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {
+            'min_length': 8,
+        }
     },
     {
         'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
@@ -183,6 +216,15 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    # API Rate Limiting (Throttling)
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '20/minute',   # Strict limit for public endpoints (like login/verify)
+        'user': '100/minute'   # Standard limit for authenticated users
+    }
 }
 
 # JWT Configuration
@@ -190,7 +232,8 @@ from datetime import timedelta
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),  # Short-lived for security
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Reduced to 1 day for stricter security
+
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
@@ -202,10 +245,9 @@ SIMPLE_JWT = {
 }
 
 # CORS Configuration
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',  # Vite dev server
-    'http://127.0.0.1:5173',
-]
+# Restrict to specific frontend URLs using environ for production flexibility
+frontend_urls = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
+CORS_ALLOWED_ORIGINS = frontend_urls.split(',')
 
 CORS_ALLOW_CREDENTIALS = True  # Required for cookies/sessions
 
@@ -252,4 +294,56 @@ SPECTACULAR_SETTINGS = {
         {'name': 'Receipts', 'description': 'Receipt event tracking'},
         {'name': 'Flags', 'description': 'Crowdsourced quality reports'},
     ],
+}
+
+# -----------------------------------------------------------------------------
+# Security Logging & Monitoring Configuration
+# -----------------------------------------------------------------------------
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'WARNING',  # Output WARNING and ERROR events to console
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'security': {
+            'level': 'WARNING',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': True,
+        },
+        'django.security': {
+            'handlers': ['security'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'accounts': {
+            'handlers': ['console', 'security'],
+            'level': 'WARNING',
+            'propagate': True,
+        }
+    },
 }

@@ -44,7 +44,6 @@ class IsDistributor(permissions.BasePermission):
         import logging
         logger = logging.getLogger(__name__)
         result = bool(request.user and request.user.is_authenticated and request.user.role == 'Distributor')
-        logger.error(f"=== IsDistributor CHECK: user={getattr(request.user, 'username', 'anon')}, role='{getattr(request.user, 'role', 'N/A')}', authenticated={getattr(request.user, 'is_authenticated', False)}, RESULT={result} ===")
         return result
 
 
@@ -162,36 +161,26 @@ class IsDistributorOrAdminForCreate(permissions.BasePermission):
         # Debug logging
         import logging
         logger = logging.getLogger(__name__)
-        logger.error(f"=== MEDICINE PERMISSION CHECK ===")
-        logger.error(f"User: {request.user}")
-        logger.error(f"Authenticated: {request.user.is_authenticated if request.user else 'No user'}")
-        logger.error(f"Role: {request.user.role if request.user and hasattr(request.user, 'role') else 'No role'}")
-        logger.error(f"Action: {view.action if hasattr(view, 'action') else 'No action'}")
         
         # Must be authenticated
         if not request.user or not request.user.is_authenticated:
-            logger.error(f"DENIED: Not authenticated")
             return False
         
         # Read operations - all authenticated users
         if view.action in ['list', 'retrieve']:
-            logger.error(f"ALLOWED: Read operation")
             return True
         
         # Create and Update - distributors and admins
         if view.action in ['create', 'update', 'partial_update']:
             result = request.user.role in ['Distributor', 'Admin']
-            logger.error(f"CREATE/UPDATE check: user_role='{request.user.role}', allowed={result}")
             return result
         
         # Delete - admins only
         if view.action == 'destroy':
             result = request.user.role == 'Admin'
-            logger.error(f"DELETE check: user_role='{request.user.role}', allowed={result}")
             return result
         
         # Default deny
-        logger.error(f"DENIED: Default deny for action {view.action if hasattr(view, 'action') else 'unknown'}")
         return False
     
     def has_object_permission(self, request, view, obj):
@@ -235,24 +224,16 @@ class IsDistributorOrAdminForManifests(permissions.BasePermission):
         
         # Must be authenticated
         if not request.user or not request.user.is_authenticated:
-            logger.error(f"=== MANIFEST PERMISSION DENIED: Not authenticated ===")
             return False
         
-        logger.error(f"=== MANIFEST PERMISSION CHECK ===")
-        logger.error(f"User: {request.user.username}")
-        logger.error(f"Role: '{request.user.role}'")
-        logger.error(f"Action: '{view.action}'")
-        logger.error(f"Method: {request.method}")
         
         # Read operations - all authenticated users
         if view.action in ['list', 'retrieve', 'verify', 'verify_qr']:
-            logger.error(f"ALLOWED: read action")
             return True
         
         # Create and Update - distributors and admins
         if view.action in ['create', 'update', 'partial_update']:
             result = request.user.role in ['Distributor', 'Admin']
-            logger.error(f"CREATE/UPDATE check: role='{request.user.role}', allowed={result}")
             return result
         
         # Delete - admins only
@@ -260,7 +241,6 @@ class IsDistributorOrAdminForManifests(permissions.BasePermission):
             return request.user.role == 'Admin'
         
         # Default deny
-        logger.error(f"DENIED: unhandled action '{view.action}'")
         return False
 
     

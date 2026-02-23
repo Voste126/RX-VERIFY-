@@ -99,16 +99,11 @@ const DistributorDashboard: React.FC = () => {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
           
-          console.log('[Dashboard] Loading distributor entities...');
           // Check if user has a distributor entity
           const entities = await distributorService.getDistributorEntities();
-          console.log('[Dashboard] Fetched entities:', entities);
-          console.log('[Dashboard] User from JWT:', parsedUser.username, parsedUser.id);
           
           if (entities && entities.length > 0) {
             const entity = entities[0];
-            console.log('[Dashboard] Selected entity:', entity.id, entity.name);
-            console.log('[Dashboard] WARNING: If multiple entities exist, first one is selected!');
             setDistributorEntity(entity);
             setStats(prev => ({ ...prev, entityStatus: 'registered' }));
             
@@ -120,14 +115,12 @@ const DistributorDashboard: React.FC = () => {
             await loadManifests(entity.id);
             await loadOrders();
           } else {
-            console.log('[Dashboard] No entities found');
             setStats(prev => ({ ...prev, entityStatus: 'none' }));
             localStorage.removeItem('distributor_entity_id');
           }
         }
         setLoading(false);
       } catch (error) {
-        console.error('[Dashboard] Error loading user data:', error);
         setLoading(false);
       }
     };
@@ -144,39 +137,29 @@ const DistributorDashboard: React.FC = () => {
       setMedicines(data);
       setStats(prev => ({ ...prev, totalMedicines: data.length }));
     } catch (error) {
-      console.error('Error loading medicines:', error);
     }
   };
   
   const loadManifests = async (distributorId?: string) => {
     try {
-      console.log('[loadManifests] Loading manifests for distributor:', distributorId);
       const data = await distributorService.getLotManifests({ distributor: distributorId });
-      console.log('[loadManifests] Loaded manifests:', data.length, 'manifests');
-      data.forEach(m => console.log('  -', m.id, 'by distributor:', m.distributor));
       setManifests(data);
       setStats(prev => ({ ...prev, totalManifests: data.length }));
     } catch (error) {
-      console.error('Error loading manifests:', error);
     }
   };
   
   const loadOrders = async () => {
     try {
-      console.log('[DistributorDashboard] Loading orders...');
       const data = await getDistributorOrders();
-      console.log('[DistributorDashboard] Orders loaded:', data);
-      console.log('[DistributorDashboard] First order items:', data[0]?.items);
       setOrders(data);
       const pending = data.filter((order: SupplyOrder) => order.status === 'PENDING');
-      console.log('[DistributorDashboard] Pending orders:', pending.length);
       setStats(prev => ({ 
         ...prev, 
         totalOrders: data.length,
         pendingOrders: pending.length 
       }));
     } catch (error) {
-      console.error('[DistributorDashboard] Error loading orders:', error);
     }
   };
   
@@ -188,12 +171,6 @@ const DistributorDashboard: React.FC = () => {
     
     try {
       setSubmitting(true);
-      
-      console.log('[FULFILL] Sending request:', {
-        order_id: selectedOrder.id,
-        manifest_id: fulfillFormData.manifest_id,
-        order_distributor: selectedOrder.distributor_name
-      });
       
       const response = await fulfillOrder(selectedOrder.id, {
         manifest_id: fulfillFormData.manifest_id
@@ -215,7 +192,6 @@ const DistributorDashboard: React.FC = () => {
         'success'
       );
     } catch (error: any) {
-      console.error('Error fulfilling order:', error);
       showModal(
         'Order Fulfillment Failed',
         error.response?.data?.error || 'Failed to fulfill order',
@@ -251,7 +227,6 @@ const DistributorDashboard: React.FC = () => {
       setShowEntityForm(false);
       setStats(prev => ({ ...prev, entityStatus: 'registered' }));
     } catch (error: any) {
-      console.error('Error creating entity:', error);
       showModal(
         'Entity Creation Failed',
         error.response?.data?.message || 'Failed to create entity',
@@ -287,7 +262,6 @@ const DistributorDashboard: React.FC = () => {
       });
       await loadMedicines(distributorEntity.id);
     } catch (error: any) {
-      console.error('Error creating medicine:', error);
       
       // Parse validation errors from backend
       const errorData = error.response?.data;
@@ -350,7 +324,6 @@ const DistributorDashboard: React.FC = () => {
         'success'
       );
     } catch (error: any) {
-      console.error('Error creating manifest:', error);
       
       // Parse validation errors from backend
       const errorData = error.response?.data;

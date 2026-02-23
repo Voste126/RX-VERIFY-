@@ -12,7 +12,14 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiResp
 
 from .models import LotManifest
 from .serializers import LotManifestSerializer
-from accounts.permissions import IsDistributorOrAdminForManifests
+from accounts.permissions import (
+    IsDistributorOrAdminForManifests,
+    IsAdminOrReadOnly,
+    IsPatient,
+    IsDistributor,
+    IsPharmacist,
+    IsPharmacistOrPatient
+)
 
 
 @extend_schema_view(
@@ -245,7 +252,7 @@ class LotManifestViewSet(viewsets.ModelViewSet):
             404: OpenApiResponse(description="Lot manifest not found"),
         }
     )
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[IsPharmacist])
     def verify(self, request, pk=None):
         """
         Ed25519 Cryptographic Verification Endpoint.

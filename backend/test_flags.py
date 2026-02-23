@@ -25,10 +25,7 @@ request.user = patient
 
 try:
     response = view(request)
-    print(f"Patient Post Response: {response.status_code}")
-    print(f"Patient Post Data: {response.data}")
 except Exception as e:
-    print(f"Patient Post Exception: {e}")
 
 # Admin test
 admin, _ = User.objects.get_or_create(username='testadmin', email='testadmin@test.com', role='Admin')
@@ -43,7 +40,4 @@ request_admin.user = admin
 
 try:
     response_admin = view(request_admin)
-    print(f"Admin Post Response: {response_admin.status_code}")
-    print(f"Admin Post Data: {response_admin.data}")
 except Exception as e:
-    print(f"Admin Post Exception: {e}")

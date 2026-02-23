@@ -25,7 +25,6 @@ const QRCodeDisplayPage: React.FC = () => {
       const data = await distributorService.getLotManifestById(manifestId!);
       setManifest(data);
     } catch (err: any) {
-      console.error('Error fetching manifest:', err);
       setError('Failed to load manifest data');
     } finally {
       setLoading(false);

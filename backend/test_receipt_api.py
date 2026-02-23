@@ -15,7 +15,6 @@ try:
         res = json.loads(response.read().decode('utf-8'))
         token = res.get('access')
 except Exception as e:
-    print("Login failed:", e)
     exit(1)
 
 # 2. Get a manifest ID
@@ -25,10 +24,8 @@ try:
         mani = json.loads(response.read().decode('utf-8'))
         manifest_id = mani['results'][0]['id'] if 'results' in mani and len(mani['results']) > 0 else "00000000-0000-0000-0000-000000000000"
 except Exception as e:
-    print("Failed to get manifests:", e)
     manifest_id = "00000000-0000-0000-0000-000000000000"
 
-print(f"Using manifest_id: {manifest_id}")
 
 # 3. Test POST /api/receipts/
 data = json.dumps({
@@ -39,10 +36,5 @@ data = json.dumps({
 req_post = urllib.request.Request(f"{BASE_URL}/receipts/", data=data, headers={'Content-Type': 'application/json', 'Authorization': f'Bearer {token}'})
 try:
     with urllib.request.urlopen(req_post) as response:
-        print(f"Status: {response.status}")
-        print(f"Response: {response.read().decode('utf-8')}")
 except urllib.error.HTTPError as e:
-    print(f"HTTPError Status: {e.code}")
-    print(f"Response: {e.read().decode('utf-8')}")
 except Exception as e:
-    print("Other Error:", e)
