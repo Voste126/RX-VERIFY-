@@ -12,9 +12,12 @@ import {
   fetchAllUsers, fetchAllFlags, fetchAllManifests,
   fetchAllMedicines, fetchAllDistributors, fetchAllReceipts, fetchAllOrders,
   resolveFlag, unresolveFlag, updateOrderStatus,
-  type AdminUser, type AdminCrowdFlag, type AdminManifest,
-  type AdminMedicine, type AdminDistributor, type AdminReceiptEvent, type AdminOrder
 } from '../services/admin';
+import type { 
+  AdminUser, AdminCrowdFlag, AdminManifest, 
+  AdminMedicine, AdminDistributor, AdminReceiptEvent, AdminOrder 
+} from '../services/admin';
+import FraudRadarMap from './FraudRadarMap';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type ActiveTab = 'overview' | 'crisis' | 'flags' | 'users' | 'manifests' | 'medicines' | 'distributors' | 'receipts' | 'orders';
@@ -485,9 +488,17 @@ const AdminDashboard: React.FC = () => {
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 space-y-6">
 
-          {/* ── OVERVIEW ───────────────────────────────────────────────── */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
+              {/* Feature: Live Epidemiological Outbreak Tracking Map */}
+              <Card className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Flag className="w-5 h-5 text-danger" />
+                  <h3 className="text-lg font-bold text-white">Live Epidemiological Outbreak Tracking</h3>
+                </div>
+                <FraudRadarMap />
+              </Card>
+
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard label="Total Users"       value={users.length}       icon={<Users className="w-6 h-6"/>}       color="text-primary"      sub={`${users.filter(u=>u.role==='Patient').length} patients`} />
                 <StatCard label="Lot Manifests"     value={manifests.length}   icon={<FileText className="w-6 h-6"/>}    color="text-purple-400"   sub={`avg trust: ${avgTrust}%`} />

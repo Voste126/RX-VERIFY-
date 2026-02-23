@@ -47,6 +47,7 @@ const PatientScanResult: React.FC = () => {
   const [reportIssueType, setReportIssueType] = useState('Quality Issue');
   const [reportDescription, setReportDescription] = useState('');
   const [reporting, setReporting] = useState(false);
+  const [acquiringLocation, setAcquiringLocation] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
 
@@ -75,15 +76,39 @@ const PatientScanResult: React.FC = () => {
     e.preventDefault();
     if (!uuid || !reportDescription.trim()) return;
     
+    setAcquiringLocation(true);
     setReporting(true);
+    
+    let lat: number | undefined;
+    let lng: number | undefined;
+
     try {
-      // Create flag without auth (using unauth flag endpoint if available, but for now we might need auth or use a public endpoint)
-      // Since it's Patient, the backend requires a POST to create a flag. 
-      // Assuming a public or specific endpoint exists. Wait, createFlag needs auth?
-      // Actually phase 1 requested a "Report Issue" action loop. 
-      // If patient isn't logged in, let's assume the backend has an accessible endpoint or we pass a generic patient token.
-      // Wait, we can just POST to /flags/ with reporter_type: 'Patient'
-      
+      // Create a promise to handle geolocation with timeout
+      const getPosition = () => {
+        return new Promise<GeolocationPosition>((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Geolocation is not supported by your browser"));
+          } else {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            });
+          }
+        });
+      };
+
+      const position = await getPosition();
+      lat = position.coords.latitude;
+      lng = position.coords.longitude;
+    } catch (err) {
+      console.warn("Could not acquire location. Submitting flag without spatial data.", err);
+      // Graceful fallback to null coords, will just submit without them
+    } finally {
+      setAcquiringLocation(false);
+    }
+    
+    try {
       const token = localStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
@@ -92,7 +117,9 @@ const PatientScanResult: React.FC = () => {
         issue_type: reportIssueType,
         description: reportDescription,
         severity: reportIssueType === 'Counterfeit Suspected' ? 'CRITICAL' : 'HIGH',
-        reporter_type: 'Patient'
+        reporter_type: 'Patient',
+        ...(lat !== undefined && { latitude: lat }),
+        ...(lng !== undefined && { longitude: lng })
       }, { headers });
       
       setReportSuccess(true);
@@ -367,9 +394,14 @@ const PatientScanResult: React.FC = () => {
                   <button 
                     type="submit"
                     disabled={reporting || !reportDescription.trim()}
-                    className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors text-sm flex justify-center items-center"
+                    className="flex-1 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold py-3 rounded-xl transition-colors text-sm flex justify-center items-center gap-2"
                   >
-                    {reporting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit Report'}
+                    {reporting ? (
+                      <>
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                        {acquiringLocation ? "Acquiring Location..." : "Submitting..."}
+                      </>
+                    ) : 'Submit Report'}
                   </button>
                 </div>
               </form>

@@ -11,7 +11,7 @@ from drf_spectacular.types import OpenApiTypes
 
 from .models import ReceiptEvent
 from .serializers import ReceiptEventSerializer
-from accounts.permissions import IsPharmacist
+from accounts.permissions import IsPharmacistForReceipts
 
 
 @extend_schema_view(
@@ -137,7 +137,7 @@ class ReceiptEventViewSet(viewsets.ModelViewSet):
     
     queryset = ReceiptEvent.objects.all().select_related('user', 'lot')
     serializer_class = ReceiptEventSerializer
-    permission_classes = [IsPharmacist]
+    permission_classes = [IsPharmacistForReceipts]
     
     # Only allow list, retrieve, and create operations
     # Receipt events are audit logs and should not be updated or deleted

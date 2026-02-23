@@ -329,3 +329,32 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(crowd_flag)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Get Heatmap Data",
+        description="Get a lightweight JSON array of all active crowd flags with coordinates for the Fraud Radar map.",
+        tags=['Flags'],
+    )
+    @action(detail=False, methods=['get'])
+    def heatmap_data(self, request):
+        """
+        Query all active flags that have coordinates and return a lightweight JSON.
+        Optimized with select_related to prevent N+1 DB queries on the lot.
+        """
+        flags = CrowdFlag.objects.filter(
+            is_resolved=False, 
+            latitude__isnull=False, 
+            longitude__isnull=False
+        ).select_related('lot__medicine')
+
+        results = []
+        for flag in flags:
+            results.append({
+                'id': str(flag.id),
+                'latitude': flag.latitude,
+                'longitude': flag.longitude,
+                'severity': flag.severity,
+                'medicine_name': flag.lot.medicine.name if flag.lot and flag.lot.medicine else "Unknown Medicine"
+            })
+            
+        return Response(results, status=status.HTTP_200_OK)

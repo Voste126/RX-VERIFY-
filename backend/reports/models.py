@@ -17,6 +17,22 @@ class CrowdFlag(models.Model):
     description = models.TextField(
         help_text="Detailed description of the issue"
     )
+    latitude = models.FloatField(
+        null=True, 
+        blank=True, 
+        help_text="Latitude coordinate of the report"
+    )
+    longitude = models.FloatField(
+        null=True, 
+        blank=True, 
+        help_text="Longitude coordinate of the report"
+    )
+    region = models.CharField(
+        max_length=100, 
+        null=True, 
+        blank=True, 
+        help_text="Geographical region or administrative area"
+    )
     
     SEVERITY_CHOICES = [
         ('CRITICAL', 'Critical - Immediate safety concern'),

@@ -12,6 +12,7 @@ class CrowdFlagSerializer(serializers.ModelSerializer):
         model = CrowdFlag
         fields = [
             'id', 'reporter_type', 'issue_type', 'severity', 'description', 
+            'latitude', 'longitude', 'region',
             'user', 'user_username', 'lot', 'lot_batch_number', 
             'created_at', 'is_resolved'
         ]

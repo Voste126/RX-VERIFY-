@@ -26,6 +26,9 @@ export interface CrowdFlag {
     user: string;
     /** Username of the reporting user (read-only) */
     user_username: string;
+    latitude?: number;
+    longitude?: number;
+    region?: string;
     created_at: string;
     is_resolved: boolean;
 }
@@ -36,6 +39,17 @@ export interface CreateFlagPayload {
     reporter_type: string;
     issue_type: string;
     description: string;
+    latitude?: number;
+    longitude?: number;
+    region?: string;
+}
+
+export interface HeatmapPoint {
+    id: string;
+    latitude: number;
+    longitude: number;
+    severity: FlagSeverity;
+    medicine_name: string;
 }
 
 // ─── API Base Path ─────────────────────────────────────────────────────────────
@@ -63,5 +77,13 @@ export async function fetchMyFlags(): Promise<CrowdFlag[]> {
  */
 export async function createFlag(payload: CreateFlagPayload): Promise<CrowdFlag> {
     const res = await api.post<CrowdFlag>(FLAGS_URL, payload);
+    return res.data;
+}
+
+/**
+ * Fetch lightweight coordinate data for the Fraud Radar Heatmap
+ */
+export async function getHeatmapData(): Promise<HeatmapPoint[]> {
+    const res = await api.get<HeatmapPoint[]>(`${FLAGS_URL}heatmap_data/`);
     return res.data;
 }
