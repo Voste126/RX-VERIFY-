@@ -123,32 +123,41 @@ WSGI_APPLICATION = 'core.wsgi.application'
 #     }
 # }
 # This logic is good and already reads from environment variables. No changes needed.
-DATABASE_URL = os.getenv('DATABASE_URL')
+# DATABASE_URL = os.getenv('DATABASE_URL')
 
-if DATABASE_URL:
-    # Use the database settings from DATABASE_URL in production
-    DATABASES = {
+# if DATABASE_URL:
+#     # Use the database settings from DATABASE_URL in production
+#     DATABASES = {
         
-        'default': dj_database_url.config(
-            default=DATABASE_URL, 
-            conn_max_age=600,
-            ssl_require='render.com' in DATABASE_URL
-        )
+#         'default': dj_database_url.config(
+#             default=DATABASE_URL, 
+#             conn_max_age=600,
+#             ssl_require='render.com' in DATABASE_URL
+#         )
         
+#     }
+# else:
+#     # Fallback to local PostgreSQL settings (for development)
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.postgresql',
+#         'NAME': os.getenv('DB_NAME'),
+#         'USER': os.getenv('DB_USER'),
+#         'PASSWORD': os.getenv('DB_PASSWORD'),
+#         'HOST': os.getenv('DB_HOST'),
+#         'PORT': os.getenv('DB_PORT'),
+#     }
+# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
     }
-else:
-    # Fallback to local PostgreSQL settings (for development)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME'),
-            'USER': os.getenv('DB_USER'),
-            'PASSWORD': os.getenv('DB_PASSWORD'),
-            'HOST': os.getenv('DB_HOST'),
-            'PORT': os.getenv('DB_PORT'),
-        }
-    }
-
+}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -264,9 +273,11 @@ CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
     'authorization',
+    'cache-control',
     'content-type',
     'dnt',
     'origin',
+    'pragma',
     'user-agent',
     'x-csrftoken',
     'x-requested-with',

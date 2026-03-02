@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2, Package, Truck } from 'lucide-react';
 import Icon from './Icon';
@@ -90,6 +90,8 @@ const DistributorDashboard: React.FC = () => {
     manifest_id: ''  // Only need manifest selection
   });
   
+  const location = useLocation();
+
   // Load user data and check for entity
   useEffect(() => {
     const loadUserData = async () => {
@@ -126,7 +128,7 @@ const DistributorDashboard: React.FC = () => {
     };
     
     loadUserData();
-  }, []);
+  }, [location.key]);
   
   const loadMedicines = async (distributorId?: string) => {
     try {

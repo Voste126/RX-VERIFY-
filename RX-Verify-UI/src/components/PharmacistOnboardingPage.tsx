@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 import { authService } from '../services/auth';
+import PasswordStrengthIndicator, { passwordMeetsAllRules } from './PasswordStrengthIndicator';
 
 const PharmacistOnboardingPage: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +23,9 @@ const PharmacistOnboardingPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const passwordValid = passwordMeetsAllRules(password);
+  const passwordsMatch = password === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -227,6 +231,7 @@ const PharmacistOnboardingPage: React.FC = () => {
                           <Icon name={showPassword ? 'visibility_off' : 'visibility'} className="text-lg" />
                         </button>
                       </div>
+                      <PasswordStrengthIndicator password={password} />
                     </label>
                     <label className="block">
                       <span className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1 block">
@@ -312,7 +317,7 @@ const PharmacistOnboardingPage: React.FC = () => {
                   </Link>
                   <button 
                     type="submit"
-                    disabled={isLoading}
+                    disabled={isLoading || !passwordValid || !passwordsMatch}
                     className="flex-[2] px-6 py-3 rounded-lg bg-primary text-white font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (

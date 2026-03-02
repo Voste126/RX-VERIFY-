@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Eye, EyeOff } from 'lucide-react';
 import Icon from './Icon';
 import { authService } from '../services/auth';
 
@@ -14,6 +15,7 @@ const LoginPage: React.FC = () => {
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Check if redirected from registration
   const isFromRegistration = location.state?.fromRegistration === true;
@@ -129,19 +131,25 @@ const LoginPage: React.FC = () => {
 
             {/* Password */}
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-gray-300">Password</label>
-              <div className="relative">
-                <input
-                  className="w-full bg-[#151923] border border-gray-700 focus:border-primary rounded-lg px-4 pr-10 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="Enter your password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                <Icon name="lock" className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 text-lg" />
-              </div>
-            </div>
+                  <label className="text-sm font-medium text-gray-300">Password</label>
+                  <div className="relative">
+                    <input
+                      className="w-full bg-[#151923] border border-gray-700 focus:border-primary rounded-lg px-4 pr-10 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                      placeholder="Enter your password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                    </button>
+                  </div>
+                </div>
 
             {/* JWT Info Box */}
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
@@ -154,11 +162,11 @@ const LoginPage: React.FC = () => {
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-3 pt-4">
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full px-6 py-3 rounded-lg bg-primary text-white font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+                <button
+                  type="submit"
+                  disabled={isLoading || password.length < 8}
+                  className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                 {isLoading ? (
                   <>
                     <Icon name="hourglass_empty" className="animate-spin" />

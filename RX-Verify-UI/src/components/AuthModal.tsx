@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import Icon from './Icon';
 
 interface AuthModalProps {
@@ -9,6 +10,8 @@ interface AuthModalProps {
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthenticate }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -77,14 +80,29 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onAuthenticate }
             </div>
             <div className="space-y-2">
               <label className="text-xs font-bold uppercase tracking-wider text-gray-500">Private Key Passphrase</label>
-              <input 
-                className="w-full bg-[#0f1623] border border-gray-700 rounded-lg px-4 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" 
-                placeholder="••••••••••••" 
-                type="password"
-                required
-              />
+              <div className="relative">
+                <input 
+                  className="w-full bg-[#0f1623] border border-gray-700 rounded-lg px-4 pr-10 py-3 text-white placeholder-gray-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors" 
+                  placeholder="••••••••••••" 
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
             </div>
-            <button type="submit" className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-lg shadow-[0_0_15px_rgba(0,85,255,0.4)] transition-all">
+            <button
+              type="submit"
+              disabled={password.length < 8}
+              className="w-full bg-primary hover:bg-blue-600 text-white font-bold py-3 rounded-lg shadow-[0_0_15px_rgba(0,85,255,0.4)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Authenticate
             </button>
           </form>

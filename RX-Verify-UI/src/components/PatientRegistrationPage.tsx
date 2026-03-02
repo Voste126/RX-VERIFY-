@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 import { authService } from '../services/auth';
+import PasswordStrengthIndicator, { passwordMeetsAllRules } from './PasswordStrengthIndicator';
 
 const PatientRegistrationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -20,15 +21,8 @@ const PatientRegistrationPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const calculatePasswordStrength = (pwd: string): { strength: number; label: string; color: string } => {
-    if (pwd.length === 0) return { strength: 0, label: '', color: '' };
-    if (pwd.length < 6) return { strength: 1, label: 'Weak', color: 'bg-red-500' };
-    if (pwd.length < 10) return { strength: 2, label: 'Good strength', color: 'bg-success' };
-    if (pwd.length < 14) return { strength: 3, label: 'Strong', color: 'bg-success' };
-    return { strength: 4, label: 'Very strong', color: 'bg-success' };
-  };
-
-  const passwordStrength = calculatePasswordStrength(password);
+  const passwordValid = passwordMeetsAllRules(password);
+  const passwordsMatch = password === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -181,7 +175,7 @@ const PatientRegistrationPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Password Field */}
+              {/* Password Field */}
             <div className="flex flex-col gap-1.5">
               <label className="text-slate-900 dark:text-slate-200 text-sm font-medium" htmlFor="password">
                 Password
@@ -204,27 +198,7 @@ const PatientRegistrationPage: React.FC = () => {
                   <Icon name={showPassword ? 'visibility_off' : 'visibility'} className="text-[20px]" />
                 </button>
               </div>
-
-              {/* Password Strength Meter */}
-              {password.length > 0 && (
-                <div className="mt-2 flex flex-col gap-1">
-                  <div className="flex gap-1 h-1.5 w-full">
-                    {[1, 2, 3, 4].map((level) => (
-                      <div
-                        key={level}
-                        className={`h-full w-1/4 rounded-full ${
-                          level <= passwordStrength.strength
-                            ? passwordStrength.color
-                            : 'bg-slate-200 dark:bg-slate-700'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <p className={`text-xs font-medium ${passwordStrength.strength >= 2 ? 'text-success' : 'text-red-500'}`}>
-                    {passwordStrength.label}
-                  </p>
-                </div>
-              )}
+              <PasswordStrengthIndicator password={password} />
             </div>
 
             {/* Confirm Password Field */}
@@ -281,7 +255,7 @@ const PatientRegistrationPage: React.FC = () => {
             {/* Submit Button */}
             <button 
               type="submit"
-              disabled={isLoading}
+              disabled={isLoading || !passwordValid || !passwordsMatch}
               className="flex w-full cursor-pointer items-center justify-center rounded-lg h-12 bg-primary hover:bg-blue-600 text-white text-base font-bold shadow-md transition-all duration-200 transform active:scale-[0.99] mt-2 group disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (

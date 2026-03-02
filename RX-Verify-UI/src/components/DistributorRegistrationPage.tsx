@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Icon from './Icon';
 import { authService } from '../services/auth';
+import PasswordStrengthIndicator, { passwordMeetsAllRules } from './PasswordStrengthIndicator';
 
 const DistributorRegistrationPage: React.FC = () => {
   const navigate = useNavigate();
@@ -19,15 +20,11 @@ const DistributorRegistrationPage: React.FC = () => {
   // UI state
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const calculatePasswordStrength = (pwd: string): { strength: number; label: string } => {
-    if (pwd.length === 0) return { strength: 0, label: '' };
-    if (pwd.length < 8) return { strength: 1, label: 'Weak' };
-    if (pwd.length < 12) return { strength: 2, label: 'Good' };
-    return { strength: 3, label: 'Strong' };
-  };
-
-  const passwordStrength = calculatePasswordStrength(password);
+  const passwordValid = passwordMeetsAllRules(password);
+  const passwordsMatch = password === confirmPassword;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,39 +185,44 @@ const DistributorRegistrationPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-gray-300">Password</label>
-                <input
-                  className="w-full bg-[#151923] border border-gray-700 focus:border-primary rounded-lg px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="••••••••"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
-                {/* Password Strength */}
-                {password.length > 0 && (
-                  <div className="flex gap-1.5 mt-1">
-                    {[1, 2, 3].map((level) => (
-                      <div
-                        key={level}
-                        className={`h-1 flex-1 rounded-full ${
-                          level <= passwordStrength.strength ? 'bg-success' : 'bg-gray-700'
-                        }`}
-                      />
-                    ))}
-                    <span className="text-xs text-success ml-2">{passwordStrength.label}</span>
-                  </div>
-                )}
+                <div className="relative">
+                  <input
+                    className="w-full bg-[#151923] border border-gray-700 focus:border-primary rounded-lg px-4 pr-10 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="••••••••"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary transition-colors"
+                  >
+                    <Icon name={showPassword ? 'visibility_off' : 'visibility'} className="text-lg" />
+                  </button>
+                </div>
+                <PasswordStrengthIndicator password={password} />
               </div>
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-gray-300">Confirm Password</label>
-                <input
-                  className="w-full bg-[#151923] border border-gray-700 focus:border-primary rounded-lg px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="••••••••"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <input
+                    className="w-full bg-[#151923] border border-gray-700 focus:border-primary rounded-lg px-4 pr-10 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="••••••••"
+                    type={showConfirmPassword ? 'text' : 'password'}
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-primary transition-colors"
+                  >
+                    <Icon name={showConfirmPassword ? 'visibility_off' : 'visibility'} className="text-lg" />
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -243,7 +245,7 @@ const DistributorRegistrationPage: React.FC = () => {
               </Link>
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !passwordValid || !passwordsMatch}
                 className="flex-[2] px-6 py-3 rounded-lg bg-primary text-white font-bold hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoading ? (

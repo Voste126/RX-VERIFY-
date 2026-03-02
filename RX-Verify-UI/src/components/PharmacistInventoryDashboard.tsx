@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Package, Truck, ClipboardCheck, PlusCircle, Loader2, QrCode, CheckCircle, 
   AlertCircle, TrendingUp, Activity, Shield, LogOut, Search, Flag, FileText,
@@ -161,11 +161,13 @@ const PharmacistInventoryDashboard: React.FC = () => {
   
   const closeModal = () => setModal(prev => ({ ...prev, isOpen: false }));
   
+  const location = useLocation();
+
   useEffect(() => {
     loadAllData();
     loadUserData();
     loadReceipts();
-  }, []);
+  }, [location.key]);
 
   useEffect(() => {
     if (activeTab !== 'verify') stopCamera();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Package, Truck, CheckCircle, Loader2, Calendar } from 'lucide-react';
 import { 
   getDistributorOrders, 
@@ -19,10 +20,32 @@ const DistributorOrderDashboard: React.FC = () => {
   const [expiryDate, setExpiryDate] = useState('');
   const [fulfillmentResult, setFulfillmentResult] = useState<any>(null);
   
+  const location = useLocation();
+
+  // ── Initial load (with spinner) ───────────────────────────────────────────
   useEffect(() => {
     loadOrders();
-  }, []);
-  
+  }, [location.key]);
+
+  // ── Background polling every 15 s (silent — no spinner) ──────────────────
+  useEffect(() => {
+    const POLL_INTERVAL_MS = 15_000;
+
+    const silentRefresh = async () => {
+      // Skip if the tab is hidden or a modal is open (user is mid-action)
+      if (document.visibilityState === 'hidden' || showFulfillModal) return;
+      try {
+        const data = await getDistributorOrders();
+        setOrders(data);
+      } catch {
+        // Silently swallow — the main load will show errors when navigating back
+      }
+    };
+
+    const intervalId = setInterval(silentRefresh, POLL_INTERVAL_MS);
+    return () => clearInterval(intervalId);  // Clean up on unmount
+  }, [showFulfillModal]);
+
   const loadOrders = async () => {
     try {
       setLoading(true);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Package, ClipboardCheck, Plus, QrCode, Loader2, Lock, LockOpen, CheckCircle, AlertTriangle } from 'lucide-react';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
 
@@ -57,9 +58,11 @@ const PharmacistOrderDashboard: React.FC = () => {
     console.log(`[${type}] ${title}: ${message}`);
   };
   
+  const location = useLocation();
+
   useEffect(() => {
     loadData();
-  }, []);
+  }, [location.key]);
   
   const loadData = async () => {
     try {

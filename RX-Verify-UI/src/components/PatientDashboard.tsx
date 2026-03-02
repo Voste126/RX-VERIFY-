@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, ShieldCheck, QrCode, Flag, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import Icon from './Icon';
 import { authService } from '../services/auth';
@@ -117,6 +117,8 @@ const PatientDashboard: React.FC = () => {
   const [myFlags, setMyFlags] = useState<CrowdFlag[]>([]);
   const [flagsLoading, setFlagsLoading] = useState(false);
 
+  const location = useLocation();
+
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     const userData = localStorage.getItem('user');
@@ -125,7 +127,7 @@ const PatientDashboard: React.FC = () => {
     if (parsed.role !== 'Patient') { navigate('/'); return; }
     setUser(parsed);
     loadFlags();
-  }, []);
+  }, [location.key]);
 
   useEffect(() => {
     if (activeTab !== 'verify') stopCamera();

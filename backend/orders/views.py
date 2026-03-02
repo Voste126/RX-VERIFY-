@@ -52,11 +52,12 @@ class SupplyOrderViewSet(viewsets.ModelViewSet):
         return SupplyOrder.objects.none()
     
     def perform_create(self, serializer):
-        """Auto-assign pharmacist as the requesting user."""
-        if self.request.user.role == 'Pharmacist':
-            serializer.save(pharmacist=self.request.user)
-        else:
-            serializer.save()
+        """Auto-assign the requesting user as the pharmacist on the order."""
+        # Always inject the authenticated user — the role guard is handled by
+        # get_queryset and the permission classes, so a non-pharmacist reaching
+        # here is already an edge case.  Attempting to save() without a pharmacist
+        # was causing an IntegrityError when the role string didn't match exactly.
+        serializer.save(pharmacist=self.request.user)
     
     @action(detail=True, methods=['post'], permission_classes=[IsDistributor])
     def fulfill(self, request, pk=None):
