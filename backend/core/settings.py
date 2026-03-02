@@ -233,7 +233,9 @@ REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_RATES': {
         'anon': '20/minute',   # Strict limit for public endpoints (like login/verify)
         'user': '100/minute'   # Standard limit for authenticated users
-    }
+    },
+    # Secure exception handler — prevents stack traces leaking to the client
+    'EXCEPTION_HANDLER': 'core.exceptions.custom_exception_handler',
 }
 
 # JWT Configuration
@@ -313,48 +315,73 @@ SPECTACULAR_SETTINGS = {
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+
     'formatters': {
+        # Clean one-line format for HTTP request logs
+        'request': {
+            'format': '[{asctime}] {levelname} {message}',
+            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
+        },
+        # More detailed format for application/security logs
         'verbose': {
-            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'format': '[{asctime}] {levelname} {name}: {message}',
             'style': '{',
-        },
-        'simple': {
-            'format': '{levelname} {message}',
-            'style': '{',
+            'datefmt': '%Y-%m-%d %H:%M:%S',
         },
     },
+
     'handlers': {
-        'console': {
-            'level': 'WARNING',  # Output WARNING and ERROR events to console
+        # Used for all HTTP request traffic (devserver)
+        'console_requests': {
             'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+            'level': 'DEBUG',
+            'formatter': 'request',
         },
-        'security': {
-            'level': 'WARNING',
+        # Used for application-level logs (errors, security, etc.)
+        'console': {
             'class': 'logging.StreamHandler',
+            'level': 'DEBUG',
             'formatter': 'verbose',
         },
     },
+
     'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': os.getenv('DJANGO_LOG_LEVEL', 'INFO'),
-            'propagate': True,
+        # Django's development runserver request logger
+        # This is the one that prints "GET /api/... 200" lines
+        'django.server': {
+            'handlers': ['console_requests'],
+            'level': 'INFO',
+            'propagate': False,
         },
-        'django.security': {
-            'handlers': ['security'],
+        # Handles 4xx/5xx errors in production WSGI/ASGI deployments
+        'django.request': {
+            'handlers': ['console'],
             'level': 'WARNING',
             'propagate': False,
         },
-        'django.request': {
+        # Security-related events (CSRF failures, suspicious requests)
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+        # Our custom exception handler (logs 500 stack traces)
+        'core.exceptions': {
             'handlers': ['console'],
             'level': 'ERROR',
             'propagate': False,
         },
-        'accounts': {
-            'handlers': ['console', 'security'],
-            'level': 'WARNING',
+        # Application code loggers
+        'django': {
+            'handlers': ['console'],
+            'level': os.getenv('DJANGO_LOG_LEVEL', 'WARNING'),
             'propagate': True,
-        }
+        },
+        'accounts': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
     },
 }

@@ -115,10 +115,7 @@ const PharmacistOrderDashboard: React.FC = () => {
       
       showModal('Order Placed', '✓ Order placed successfully!', 'success');
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error 
-        || error.response?.data?.detail
-        || JSON.stringify(error.response?.data)
-        || 'Failed to create order';
+      const errorMessage = error.message || 'Failed to create order';
       showModal('Order Creation Failed', errorMessage, 'error');
     } finally {
       setSubmitting(false);

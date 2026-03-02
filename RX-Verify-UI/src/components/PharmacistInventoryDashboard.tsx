@@ -280,12 +280,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
       setShowCreateOrderModal(false);
       showModal('Order Placed', '✅ Order created successfully!', 'success');
     } catch (error: any) {
-      console.error('Error creating order:', error);
-      console.error('Error response:', error.response?.data);
-      const errorMessage = error.response?.data?.error 
-        || error.response?.data?.detail
-        || JSON.stringify(error.response?.data)
-        || 'Failed to create order';
+      const errorMessage = error.message || 'Failed to create order';
       showModal('Order Creation Failed', errorMessage, 'error');
     } finally {
       setSubmitting(false);

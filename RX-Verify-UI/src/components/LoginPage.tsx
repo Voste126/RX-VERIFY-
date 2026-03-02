@@ -51,14 +51,7 @@ const LoginPage: React.FC = () => {
       // Navigate to the appropriate dashboard
       navigate(dashboardPath);
     } catch (err: any) {
-      const errorData = err.response?.data;
-      if (typeof errorData === 'object') {
-        // Extract first error message
-        const firstError = Object.values(errorData)[0];
-        setError(Array.isArray(firstError) ? firstError[0] : String(firstError));
-      } else {
-        setError(errorData || 'Login failed. Please check your credentials and try again.');
-      }
+      setError(err.message || 'Login failed. Please check your credentials and try again.');
     } finally {
       setIsLoading(false);
     }

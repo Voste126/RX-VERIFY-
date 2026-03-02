@@ -56,14 +56,7 @@ const PharmacistOnboardingPage: React.FC = () => {
       // Redirect to login page after successful registration
       navigate('/login', { state: { fromRegistration: true, role: 'Pharmacist' } });
     } catch (err: any) {
-      const errorData = err.response?.data;
-      if (typeof errorData === 'object') {
-        // Extract first error message
-        const firstError = Object.values(errorData)[0];
-        setError(Array.isArray(firstError) ? firstError[0] : String(firstError));
-      } else {
-        setError(errorData || 'Registration failed. Please try again.');
-      }
+      setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setIsLoading(false);
     }
