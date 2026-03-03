@@ -122,14 +122,15 @@ sequenceDiagram
     participant UI as React Frontend
     participant API as Django REST API
     participant DB as PostgreSQL
-    participant Crypto as PyNaCl (Ed25519)
+    participant Crypto as PyNaCl Ed25519
 
-    D->>UI: Login (POST /api/auth/token/)
-    UI->>API: JWT issued → stored in localStorage
-    
+    D->>UI: Login via POST /api/auth/token/
+    UI->>API: Credentials submitted
+    API-->>UI: JWT access and refresh tokens returned
+
     D->>UI: Register Distributor Entity
     UI->>API: POST /api/distributors/
-    API->>DB: Save entity (name, public_key)
+    API->>DB: Save entity with name and public_key
     API-->>UI: Distributor UUID returned
 
     D->>UI: Create Medicine
@@ -137,18 +138,18 @@ sequenceDiagram
     API->>DB: Save Medicine record
     API-->>UI: Medicine UUID
 
-    D->>UI: Create Lot Manifest (batch_number, expiry, medicine, distributor)
+    D->>UI: Create Lot Manifest with batch_number, expiry, medicine, distributor
     UI->>API: POST /api/manifests/
-    API->>Crypto: Derive signing key from distributor public_key[:32]
-    Crypto->>Crypto: Sign("{batch}:{expiry}:{distributor_id}")
-    Crypto-->>API: 128-char hex signature
-    API->>DB: Save LotManifest (trust_score=100.00)
-    API-->>UI: Manifest UUID + QR content
+    API->>Crypto: Derive signing key from distributor public_key
+    Crypto->>Crypto: Sign batch:expiry:distributor_id message
+    Crypto-->>API: 128-char hex Ed25519 signature
+    API->>DB: Save LotManifest with trust_score 100
+    API-->>UI: Manifest UUID and QR content
 
-    D->>UI: Fulfill Order (link manifest_id)
-    UI->>API: POST /api/orders/{id}/fulfill/
-    API->>DB: order.manifest = manifest; status = SHIPPED
-    API-->>UI: QR data + batch details
+    D->>UI: Fulfill Order by linking a manifest
+    UI->>API: POST /api/orders/id/fulfill/
+    API->>DB: Link manifest to order and set status to SHIPPED
+    API-->>UI: QR data and batch details
 ```
 
 ---
@@ -161,29 +162,29 @@ sequenceDiagram
     participant UI as React Frontend
     participant API as Django REST API
     participant DB as PostgreSQL
-    participant Crypto as PyNaCl (Ed25519)
+    participant Crypto as PyNaCl Ed25519
 
-    P->>UI: Login → JWT stored
-    P->>UI: Place Supply Order (distributor, items)
+    P->>UI: Login, JWT stored
+    P->>UI: Place Supply Order with distributor and items
     UI->>API: POST /api/orders/
-    API->>DB: SupplyOrder (status=PENDING, delivery_token=SHA-256 hash)
+    API->>DB: Create SupplyOrder, status PENDING, generate delivery token
     API-->>UI: Order ID
 
-    note over UI,API: After distributor ships (status=SHIPPED)
+    note over UI,API: Distributor ships the order
 
-    P->>UI: Inspect Shipment (view manifest details)
-    UI->>API: GET /api/orders/{id}/manifest_details/
+    P->>UI: Inspect Shipment to view manifest details
+    UI->>API: GET /api/orders/id/manifest_details/
     API->>DB: Fetch linked LotManifest
     API-->>UI: digital_signature, batch_number, trust_score
 
     P->>UI: Scan QR code on physical package
-    UI->>API: POST /api/orders/verify_receipt/ {scanned_uuid}
+    UI->>API: POST /api/orders/verify_receipt/ with scanned UUID
     API->>DB: Fetch LotManifest by UUID
-    API->>Crypto: verify_signature() — Ed25519 check
-    Crypto-->>API: is_authentic = true/false
-    API->>DB: Check SupplyOrder.pharmacist == request.user
-    API->>DB: order.status = DELIVERED; trust_score += 10
-    API-->>UI: VERIFIED + final trust_score + chain_of_custody: true
+    API->>Crypto: Run Ed25519 verify_signature
+    Crypto-->>API: is_authentic true or false
+    API->>DB: Confirm order belongs to this pharmacist
+    API->>DB: Set order status to DELIVERED, add trust score bonus
+    API-->>UI: VERIFIED with final trust_score and chain of custody confirmed
 ```
 
 ---
@@ -196,22 +197,22 @@ sequenceDiagram
     participant UI as React Frontend
     participant API as Django REST API
     participant DB as PostgreSQL
-    participant Crypto as PyNaCl (Ed25519)
+    participant Crypto as PyNaCl Ed25519
 
     Pat->>UI: Scan QR code on medicine packet
-    UI->>API: GET /api/manifests/{lot_id}/verify-qr/ (public, no auth)
-    API->>DB: Fetch LotManifest + crowd_flags + receipt_events
-    API->>Crypto: verify_signature()
-    Crypto-->>API: is_authentic
-    API-->>UI: trust_score, trust_status (SAFE/CAUTION/WARNING), medicine details
+    UI->>API: GET /api/manifests/lot_id/verify-qr/ — no auth required
+    API->>DB: Fetch LotManifest with crowd_flags and receipt_events
+    API->>Crypto: Run verify_signature
+    Crypto-->>API: is_authentic result
+    API-->>UI: trust_score, trust_status SAFE or CAUTION or WARNING, medicine details
 
-    alt Trust score < 60 or suspicious
-        Pat->>UI: Submit Crowd Flag (issue_type, severity, description)
-        UI->>API: POST /api/flags/ (JWT required)
-        API->>DB: Save CrowdFlag (lot, user, severity, location)
-        API->>DB: LotManifest.update_trust_score()
-        note right of DB: Deductions: CRITICAL -30,\nHIGH -20, MEDIUM -15, LOW -5
-        API-->>UI: Flag created; updated trust_score
+    alt Medicine appears suspicious or trust score is low
+        Pat->>UI: Submit Crowd Flag with issue_type, severity, description
+        UI->>API: POST /api/flags/ with JWT
+        API->>DB: Save CrowdFlag with lot, user, severity, location
+        API->>DB: Recalculate LotManifest trust_score
+        note right of DB: CRITICAL -30, HIGH -20, MEDIUM -15, LOW -5
+        API-->>UI: Flag created with updated trust_score
     end
 ```
 
