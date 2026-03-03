@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: rx-verify-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    # preDeployCommand runs BEFORE traffic is switched to the new instance.
+    # Migrations run here — the port is not checked until after this completes,
+    # so there is no health-check timeout risk.
+    preDeployCommand: "python manage.py migrate --noinput && python manage.py collectstatic --noinput"
+    envVars:
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        value: "rx-verify-backend.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        value: "https://rx-verify.onrender.com"
+      - key: DATABASE_URL
+        sync: false   # Set this manually in the Render dashboard — see deployment notes

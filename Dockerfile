@@ -32,7 +32,6 @@ USER django
 # Expose port
 EXPOSE 8000
 
-# Run migrations, collect static files, then start Gunicorn.
-# migrate runs on every deploy so a fresh Render Postgres instance gets its
-# tables created automatically. collectstatic is safe to run again each time.
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} core.wsgi:application"]
+# Migrations and collectstatic are handled by render.yaml preDeployCommand
+# so Gunicorn starts immediately and Render can detect the open port.
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 core.wsgi:application"]
