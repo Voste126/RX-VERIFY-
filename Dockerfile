@@ -32,8 +32,7 @@ USER django
 # Expose port
 EXPOSE 8000
 
-# Collect static files (requires secretly dummy SECRET_KEY if settings require it, 
-# but usually collectstatic runs fine if env vars are optional or provided at build)
-# We will use the CMD to run Gunicorn.
-# Using ${PORT:-8000} so Render can dynamically assign the port.
-CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-8000} core.wsgi:application"]
+# Run migrations, collect static files, then start Gunicorn.
+# migrate runs on every deploy so a fresh Render Postgres instance gets its
+# tables created automatically. collectstatic is safe to run again each time.
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py collectstatic --noinput && gunicorn --bind 0.0.0.0:${PORT:-8000} core.wsgi:application"]
