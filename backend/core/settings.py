@@ -32,7 +32,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-default-key-for-dev-o
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1,rx-verify-backend.onrender.com').split(',')
 
 # -----------------------------------------------------------------------------
 # OWASP Hardening: Security Middleware Configurations
@@ -257,7 +257,7 @@ SIMPLE_JWT = {
 
 # CORS Configuration
 # Restrict to specific frontend URLs using environ for production flexibility
-frontend_urls = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173')
+frontend_urls = os.environ.get('CORS_ALLOWED_ORIGINS', 'http://localhost:5173,http://127.0.0.1:5173,https://rx-verify.onrender.com')
 CORS_ALLOWED_ORIGINS = frontend_urls.split(',')
 
 CORS_ALLOW_CREDENTIALS = True  # Required for cookies/sessions
