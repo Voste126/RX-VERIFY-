@@ -56,7 +56,11 @@ api.interceptors.response.use(
         const data = error.response?.data as Record<string, unknown> | undefined;
 
         // ── 401: Try token refresh first; sanitize only if refresh also fails ──
-        if (httpStatus === 401 && !originalRequest?._retry) {
+        // Skip refresh if the failing request IS an auth endpoint (e.g. login with bad
+        // credentials returns 401 — refreshing a null/stale token would just add a
+        // spurious 400 to the logs).
+        const isAuthEndpoint = originalRequest?.url?.includes('/auth/');
+        if (httpStatus === 401 && !originalRequest?._retry && !isAuthEndpoint) {
             originalRequest._retry = true;
             try {
                 const refreshToken = localStorage.getItem('refresh_token');
