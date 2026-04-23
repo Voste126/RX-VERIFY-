@@ -7,33 +7,37 @@
 ## 1. UML Use Case Diagram
 
 ```mermaid
-flowchart TB
-    subgraph RxVerify["🏥 RxVerify Lite System"]
-        UC1["📦 Create Lot Manifest\n(Ed25519 Signed)"]
-        UC2["💊 Register Medicine"]
-        UC3["📋 Place Supply Order"]
-        UC4["🔍 Verify Receipt\n(Scan QR / Batch)"]
-        UC5["✅ Confirm Delivery\n(SHA-256 Token)"]
-        UC6["🚩 Submit Crowd Flag"]
-        UC7["📊 View Trust Score"]
-        UC8["🗺️ Fraud Radar\n(Heatmap Dashboard)"]
-        UC9["⚙️ Manage Users & Roles"]
-        UC10["📈 Review Flagged Lots"]
+flowchart LR
+    Distributor(["Distributor"])
+    Pharmacist(["Pharmacist"])
+
+    subgraph RxVerify["RxVerify Lite System"]
+        UC1["Create Lot Manifest\n-- Ed25519 Signed --"]
+        UC2["Register Medicine"]
+        UC3["Place Supply Order"]
+        UC4["Verify Receipt\n-- Scan QR / Batch --"]
+        UC5["Confirm Delivery\n-- SHA-256 Token --"]
+        UC7["View Trust Score"]
+        UC6["Submit Crowd Flag"]
+        UC8["Fraud Radar\n-- Heatmap Dashboard --"]
+        UC9["Manage Users and Roles"]
+        UC10["Review Flagged Lots"]
     end
 
-    Distributor(["🏭 Distributor"])
-    Pharmacist(["💊 Pharmacist"])
-    Patient(["🧑 Patient"])
-    Admin(["🔐 Admin"])
+    Patient(["Patient"])
+    Admin(["Admin"])
 
     Distributor --> UC1
     Distributor --> UC2
+
     Pharmacist --> UC3
     Pharmacist --> UC4
     Pharmacist --> UC5
     Pharmacist --> UC7
+
     Patient --> UC6
     Patient --> UC7
+
     Admin --> UC8
     Admin --> UC9
     Admin --> UC10
