@@ -194,7 +194,7 @@ flowchart LR
 
 ---
 
-## 4. DFD Level 2 — Pharmacist Verification Process
+## 4. DFD Level 2 — Pharmacist Medication Verification Process
 
 ```mermaid
 flowchart TB
@@ -238,7 +238,63 @@ flowchart TB
 
 ---
 
-## 5. UML Sequence Diagram — Pharmacist Verification Flow
+## 5. DFD Level 3 — Patient Medication Verification Process
+
+```mermaid
+flowchart TB
+    Patient(["Patient\nMobile App"])
+    QR["QR Code\non Medicine Packet"]
+    DB[("PostgreSQL")]
+
+    Patient -- "1. Scan QR Code" --> QR
+    QR -- "lot_id UUID" --> P3_1
+
+    subgraph PatientVerify["Process: Patient Verify Medication (Public Endpoint)"]
+        P3_1["3.1\nExtract Lot ID\nfrom QR Payload"]
+        P3_2["3.2\nFetch LotManifest\n+ Medicine + Distributor"]
+        P3_3["3.3\nCryptographic\nSignature Validation\n-- Ed25519 via PyNaCl --"]
+        P3_4["3.4\nTrust Score\nClassification"]
+        P3_5["3.5\nAggregate\nUnresolved Flag Count"]
+        P3_6["3.6\nBuild Patient-Friendly\nResponse Payload"]
+    end
+
+    P3_1 -- "lot_id UUID" --> P3_2
+    P3_2 -- "SELECT LotManifest\nJOIN Medicine\nJOIN Distributor" --> DB
+    DB -- "batch_number\nexpiry_date\ndigital_signature\nmedicine details\ndistributor name" --> P3_2
+
+    P3_2 -- "LotManifest object" --> P3_3
+    P3_3 -- "verify_signature()\nis_authentic Boolean" --> P3_4
+
+    P3_4 -- "trust_score >= 80 : SAFE\ntrust_score >= 60 : CAUTION\ntrust_score < 60 : WARNING" --> P3_6
+
+    P3_2 -- "lot_manifest.crowd_flags" --> P3_5
+    P3_5 -- "SELECT COUNT\nWHERE is_resolved = False" --> DB
+    DB -- "flags_count Integer" --> P3_5
+    P3_5 -- "flags_count" --> P3_6
+
+    P3_6 -- "Response:\n lot_id, batch_number\n medicine name, strength\n trust_score, trust_status\n is_authentic, flags_count\n can_report = True\n report_url" --> Patient
+
+    style P3_3 fill:#1a1a2e,stroke:#e94560,color:#fff
+    style P3_4 fill:#1a1a2e,stroke:#0f3460,color:#fff
+    style P3_6 fill:#1a1a2e,stroke:#16c79a,color:#fff
+```
+
+### Patient Verification — Sub-Process Details
+
+| Sub-Process | Input | Logic | Output |
+|---|---|---|---|
+| **3.1 Extract Lot ID** | Scanned QR code | Parse UUID from QR payload | `lot_id` (UUID) |
+| **3.2 Fetch LotManifest** | `lot_id` | `LotManifest.objects.get(pk=lot_id)` with `medicine` and `distributor` joins | Full manifest object |
+| **3.3 Crypto Validation** | `batch_number:expiry_date:distributor_id`, signature, public key | `verify_signature()` via PyNaCl Ed25519 | `is_authentic` (Boolean) |
+| **3.4 Trust Classification** | `trust_score` (Decimal) | Score >= 80 → SAFE; >= 60 → CAUTION; < 60 → WARNING | `trust_status` (String) |
+| **3.5 Flag Aggregation** | `lot_manifest.crowd_flags` | `COUNT(*) WHERE is_resolved = False` | `flags_count` (Integer) |
+| **3.6 Build Response** | All sub-process outputs | Assemble patient-friendly JSON with medicine details, trust badge, and report URL | HTTP 200 JSON payload |
+
+> **Note:** This is a **public endpoint** — no authentication is required. The patient can subsequently submit a `CrowdFlag` via `POST /api/flags/` if the result is suspicious.
+
+---
+
+## 6. UML Sequence Diagram — Pharmacist Verification Flow
 
 ```mermaid
 sequenceDiagram
@@ -298,7 +354,7 @@ sequenceDiagram
 
 ---
 
-## 6. Trust Score Algorithm — Decision Flowchart
+## 7. Trust Score Algorithm — Decision Flowchart
 
 ```mermaid
 flowchart TD
