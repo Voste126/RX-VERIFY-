@@ -390,3 +390,122 @@ flowchart TD
     style Final fill:#16c79a,stroke:#1a1a2e,color:#fff
     style Base fill:#0f3460,stroke:#e2e2e2,color:#fff
 ```
+
+---
+
+## 8. Entity-Relationship (ER) Diagram — Database Structure
+
+```mermaid
+erDiagram
+    USER {
+        UUID id PK
+        String username
+        String password
+        String email
+        String first_name
+        String last_name
+        String role "Admin | Pharmacist | Patient | Distributor"
+        String pharmacy_name "nullable"
+        String pharmacy_phone "nullable"
+        String license_number "nullable"
+        String company_name "nullable"
+        DateTime date_joined
+        Boolean is_active
+    }
+
+    DISTRIBUTOR {
+        UUID id PK
+        String name
+        Text public_key "Ed25519 public key"
+        Boolean is_verified_regulator
+        UUID created_by FK "→ USER.id"
+    }
+
+    MEDICINE {
+        UUID id PK
+        String name
+        String category
+        String active_ingredient
+        String strength
+        String dosage_form
+        String manufacturer_name
+        UUID distributor FK "→ DISTRIBUTOR.id"
+    }
+
+    LOT_MANIFEST {
+        UUID id PK
+        String batch_number UK "unique"
+        Date expiry_date
+        Text digital_signature "Ed25519 hex 128 chars"
+        Decimal trust_score "0.00 – 100.00"
+        UUID medicine FK "→ MEDICINE.id"
+        UUID distributor FK "→ DISTRIBUTOR.id"
+    }
+
+    SUPPLY_ORDER {
+        UUID id PK
+        UUID pharmacist FK "→ USER.id"
+        UUID distributor FK "→ DISTRIBUTOR.id"
+        JSON items "medicines and quantities"
+        String status "PENDING | SHIPPED | DELIVERED | REJECTED"
+        UUID manifest FK "→ LOT_MANIFEST.id (OneToOne)"
+        String delivery_token "SHA-256 hex 64 chars"
+        DateTime created_at
+        DateTime updated_at
+    }
+
+    CROWD_FLAG {
+        UUID id PK
+        String reporter_type
+        String issue_type
+        Text description
+        Float latitude "nullable"
+        Float longitude "nullable"
+        String region "nullable"
+        String severity "CRITICAL | HIGH | MEDIUM | LOW"
+        UUID user FK "→ USER.id"
+        UUID lot FK "→ LOT_MANIFEST.id"
+        Boolean is_resolved
+        DateTime created_at
+    }
+
+    RECEIPT_EVENT {
+        UUID id PK
+        JSON location_coord "lat lng JSON"
+        UUID user FK "→ USER.id"
+        UUID lot FK "→ LOT_MANIFEST.id"
+        DateTime created_at
+    }
+
+    %% ── Relationships ──────────────────────────────────────
+    USER ||--o{ DISTRIBUTOR : "creates"
+    USER ||--o{ SUPPLY_ORDER : "places"
+    USER ||--o{ CROWD_FLAG : "reports"
+    USER ||--o{ RECEIPT_EVENT : "creates"
+
+    DISTRIBUTOR ||--o{ MEDICINE : "supplies"
+    DISTRIBUTOR ||--o{ LOT_MANIFEST : "signs"
+    DISTRIBUTOR ||--o{ SUPPLY_ORDER : "fulfills"
+
+    MEDICINE ||--o{ LOT_MANIFEST : "has lots"
+
+    LOT_MANIFEST ||--o| SUPPLY_ORDER : "chain of custody"
+    LOT_MANIFEST ||--o{ CROWD_FLAG : "flagged by"
+    LOT_MANIFEST ||--o{ RECEIPT_EVENT : "verified by"
+```
+
+### ER Diagram — Relationship Summary
+
+| Relationship | Cardinality | Description |
+|---|---|---|
+| **User → Distributor** | One-to-Many | A user (Admin/Distributor role) can register multiple distributor entities |
+| **User → SupplyOrder** | One-to-Many | A pharmacist places multiple supply orders |
+| **User → CrowdFlag** | One-to-Many | Any user can submit multiple crowd-sourced quality flags |
+| **User → ReceiptEvent** | One-to-Many | A pharmacist records multiple receipt events upon verification |
+| **Distributor → Medicine** | One-to-Many | A distributor supplies many medicines |
+| **Distributor → LotManifest** | One-to-Many | A distributor signs many lot manifests |
+| **Distributor → SupplyOrder** | One-to-Many | A distributor fulfills many orders |
+| **Medicine → LotManifest** | One-to-Many | Each medicine can have many production lots |
+| **LotManifest → SupplyOrder** | One-to-One | Each lot is linked to exactly one order (chain of custody) |
+| **LotManifest → CrowdFlag** | One-to-Many | A lot can be flagged multiple times |
+| **LotManifest → ReceiptEvent** | One-to-Many | A lot can be received/scanned multiple times |
