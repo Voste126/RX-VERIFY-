@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Premium Blue Gradient for the Shield -->
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1e3a8a" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    
+    <!-- Soft Drop Shadow -->
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Cryptographic Security Shield -->
+  <path d="M256 48 L80 120 V256 C80 367 154 468 256 496 C358 468 432 367 432 256 V120 L256 48 Z" 
+        fill="url(#shieldGrad)" 
+        stroke="#60a5fa" 
+        stroke-width="12" 
+        stroke-linejoin="round" 
+        filter="url(#shadow)"/>
+
+  <!-- Pharmaceutical Medical Cross (Subtle) -->
+  <path d="M224 140 V224 H140 V288 H224 V372 H288 V288 H372 V224 H288 V140 Z" 
+        fill="#ffffff" 
+        opacity="0.15"/>
+
+  <!-- Authenticity Verification Checkmark -->
+  <path d="M150 260 L220 330 L360 170" 
+        fill="none" 
+        stroke="#4ade80" 
+        stroke-width="44" 
+        stroke-linecap="round" 
+        stroke-linejoin="round"/>
+</svg>
