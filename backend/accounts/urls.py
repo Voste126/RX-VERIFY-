@@ -13,14 +13,9 @@ from .views import (
     patient_register,
     pharmacist_register,
     distributor_register,
-    logout
+    logout,
+    CustomTokenObtainPairView
 )
-from .serializers import CustomTokenObtainPairSerializer
-
-
-# Custom JWT view with role in payload
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
 
 
 # Create a router for ViewSets

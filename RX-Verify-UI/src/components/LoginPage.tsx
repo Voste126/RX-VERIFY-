@@ -144,14 +144,14 @@ const LoginPage: React.FC = () => {
                   </div>
                 </div>
 
-            {/* JWT Info Box */}
+            {/* JWT Info Box
             <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4 flex items-start gap-3">
               <Icon name="key" className="text-blue-400 mt-0.5" />
               <div className="text-sm">
                 <p className="text-blue-300 font-medium">Secure JWT Authentication</p>
                 <p className="text-gray-400 mt-1">Your session will be protected with industry-standard JWT tokens.</p>
               </div>
-            </div>
+            </div> */}
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-3 pt-4">

@@ -9,6 +9,18 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
+from rest_framework.throttling import AnonRateThrottle
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import CustomTokenObtainPairSerializer
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework_simplejwt.tokens import RefreshToken
+from .serializers import (
+    PatientRegistrationSerializer,
+    PharmacistRegistrationSerializer,
+    DistributorRegistrationSerializer
+)
+
 
 from .models import User
 from .serializers import UserSerializer
@@ -147,14 +159,6 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
-from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import (
-    PatientRegistrationSerializer,
-    PharmacistRegistrationSerializer,
-    DistributorRegistrationSerializer
-)
 
 
 @extend_schema(
@@ -249,3 +253,22 @@ def logout(request):
     except Exception as e:
         # Even if something goes wrong, allow logout to succeed
         return Response({'message': 'Logged out'}, status=status.HTTP_200_OK)
+
+
+
+
+class LoginRateThrottle(AnonRateThrottle):
+    """
+    Strict rate limit specifically for the login endpoint to prevent 
+    brute-force attacks and credential stuffing.
+    """
+    rate = '10/m'
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Custom JWT view that uses CustomTokenObtainPairSerializer to include
+    role info in payload and enforce a 5-strike cache-based lockout.
+    It also applies the strict LoginRateThrottle.
+    """
+    serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [LoginRateThrottle]

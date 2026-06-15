@@ -1,4 +1,6 @@
-from rest_framework import serializers
+from rest_framework import serializers, exceptions
+from django.core.cache import cache
+import time
 from .models import User
 
 
@@ -110,7 +112,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         return token
     
     def validate(self, attrs):
-        data = super().validate(attrs)
+        request = self.context.get('request')
+        ip = request.META.get('REMOTE_ADDR', 'unknown') if request else 'unknown'
+        username = attrs.get(self.username_field, 'unknown_user')
+        
+        lockout_key = f"login_lockout_{ip}_{username}"
+        strikes_key = f"login_strikes_{ip}_{username}"
+        
+        # Check if currently locked out
+        lockout_time = cache.get(lockout_key)
+        if lockout_time:
+            remaining = int(lockout_time - time.time())
+            if remaining > 0:
+                raise exceptions.Throttled(
+                    detail=f"Too many failed login attempts. Locked out for {remaining} seconds."
+                )
+        
+        try:
+            data = super().validate(attrs)
+        except exceptions.AuthenticationFailed:
+            # Increment strike counter
+            strikes = cache.get(strikes_key, 0) + 1
+            cache.set(strikes_key, strikes, 300)  # Keep strikes valid for 5 mins
+            
+            if strikes >= 5:
+                # Trigger lockout for 5 minutes (300 seconds)
+                cache.set(lockout_key, time.time() + 300, 300)
+                cache.delete(strikes_key)
+                raise exceptions.Throttled(
+                    detail="Too many failed login attempts. Locked out for 300 seconds."
+                )
+                
+            raise
+            
+        # Successful login, clear strikes
+        cache.delete(strikes_key)
         
         # Add user info to response
         data['user'] = {
