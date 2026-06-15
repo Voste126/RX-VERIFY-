@@ -11,11 +11,11 @@ import { useQRScanner } from '../hooks/useQRScanner';
 // CrowdFlag is imported from services/flags.ts (matches backend CrowdFlagSerializer)
 
 const ISSUE_TYPES = [
-  'Counterfeit Suspected',
-  'Quality Issue',
-  'Packaging Damage',
-  'Adverse Reaction',
-  'General Concern',
+  { value: 'COUNTERFEIT', label: 'Counterfeit Suspected' },
+  { value: 'QUALITY', label: 'Quality Issue' },
+  { value: 'PACKAGING', label: 'Packaging Damage' },
+  { value: 'ADVERSE_EVENT', label: 'Adverse Reaction' },
+  { value: 'MISSING_MANIFEST', label: 'Missing Manifest / Seal' },
 ];
 
 interface QRVerificationResult {
@@ -108,6 +108,9 @@ const PatientDashboard: React.FC = () => {
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [customTag, setCustomTag] = useState('');
   const [description, setDescription] = useState('');
+  const [dispensingPharmacyName, setDispensingPharmacyName] = useState('');
+  const [dateOfPurchase, setDateOfPurchase] = useState('');
+  const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
   const [reportManifestId, setReportManifestId] = useState('');
   const [reportLoading, setReportLoading] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
@@ -187,6 +190,9 @@ const PatientDashboard: React.FC = () => {
         reporter_type: 'Patient',
         issue_type: issue,
         description: fullDesc,
+        dispensing_pharmacy_name: dispensingPharmacyName,
+        date_of_purchase: dateOfPurchase,
+        evidence_image: evidenceImage || undefined,
       });
       setReportSuccess(true);
       setSelectedRisk(null);
@@ -195,6 +201,9 @@ const PatientDashboard: React.FC = () => {
       setCustomTag('');
       setDescription('');
       setReportManifestId('');
+      setDispensingPharmacyName('');
+      setDateOfPurchase('');
+      setEvidenceImage(null);
       await loadFlags();
     } catch (err: any) {
       const errData = err.response?.data;
@@ -788,16 +797,16 @@ const PatientDashboard: React.FC = () => {
                   <div className="flex flex-wrap gap-2">
                     {ISSUE_TYPES.map(it => (
                       <button
-                        key={it}
+                        key={it.value}
                         type="button"
-                        onClick={() => setSelectedIssueType(prev => prev === it ? '' : it)}
+                        onClick={() => setSelectedIssueType(prev => prev === it.value ? '' : it.value)}
                         className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-                          selectedIssueType === it
+                          selectedIssueType === it.value
                             ? 'bg-[#0055FF] border-[#0055FF] text-white'
                             : 'border-gray-700 text-gray-300 hover:border-gray-500'
                         }`}
                       >
-                        {it}
+                        {it.label}
                       </button>
                     ))}
                   </div>
@@ -859,6 +868,50 @@ const PatientDashboard: React.FC = () => {
                     placeholder="+ Add custom tag"
                     className="w-full px-3 py-2 bg-[#0a0e1a] border border-dashed border-gray-600 focus:border-[#0055FF] rounded-lg text-sm text-white placeholder-gray-600 focus:outline-none"
                   />
+                </div>
+
+                {/* Purchase Details & Evidence */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon name="storefront" className="text-[#0055FF]" />
+                    <h3 className="font-bold">Purchase & Evidence</h3>
+                    <span className="ml-auto text-xs text-gray-500 font-semibold">OPTIONAL</span>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Dispensing Pharmacy</label>
+                    <input 
+                      type="text"
+                      value={dispensingPharmacyName}
+                      onChange={(e) => setDispensingPharmacyName(e.target.value)}
+                      placeholder="Pharmacy or store name"
+                      className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#0055FF]/50 focus:outline-none placeholder-gray-600"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">Date of Purchase</label>
+                      <input 
+                        type="date"
+                        value={dateOfPurchase}
+                        onChange={(e) => setDateOfPurchase(e.target.value)}
+                        className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#0055FF]/50 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">Photographic Evidence</label>
+                      <input 
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setEvidenceImage(e.target.files[0]);
+                          }
+                        }}
+                        className="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-[#0055FF]/50 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-[#0055FF]/20 file:text-[#0055FF]"
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 {/* Incident Details */}

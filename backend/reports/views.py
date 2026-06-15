@@ -1,35 +1,48 @@
 """
-API views for crowdsourced quality reporting.
+API views for crowdsourced quality reporting / Incident Management.
 
 This module provides ViewSets for crowd flag operations with automatic
-user association and patient/pharmacist permissions.
+user association, investigation lifecycle actions, and image upload support.
 """
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.response import Response
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 
 from .models import CrowdFlag
 from .serializers import CrowdFlagSerializer
-from accounts.permissions import IsPatientOrPharmacist, IsAdminOrPatientOrPharmacist
+from accounts.permissions import IsAdminOrPatientOrPharmacist
+
+
+# Terminal statuses — flags in these states are considered "resolved"
+TERMINAL_STATUSES = ('RESOLVED', 'CLOSED_NO_ACTION')
+ACTIVE_STATUSES = ('NEW', 'INVESTIGATING', 'ESCALATED_DISTRIBUTOR', 'ESCALATED_REGULATOR')
 
 
 @extend_schema_view(
     list=extend_schema(
         summary="List all crowd flags",
-        description="Retrieve quality reports with comprehensive filtering options including severity level.",
+        description="Retrieve quality reports with comprehensive filtering options including severity level and investigation status.",
         tags=['Flags'],
         parameters=[
             OpenApiParameter(
                 name='resolved',
                 type=OpenApiTypes.BOOL,
                 location=OpenApiParameter.QUERY,
-                description='Filter by resolution status',
+                description='Filter by resolution status (backward-compatible)',
                 examples=[
                     OpenApiExample('Unresolved Only', value='false'),
                     OpenApiExample('Resolved Only', value='true'),
                 ]
+            ),
+            OpenApiParameter(
+                name='status',
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description='Filter by investigation status (comma-separated: NEW,INVESTIGATING,ESCALATED_DISTRIBUTOR,ESCALATED_REGULATOR,RESOLVED,CLOSED_NO_ACTION)',
             ),
             OpenApiParameter(
                 name='severity',
@@ -49,8 +62,8 @@ from accounts.permissions import IsPatientOrPharmacist, IsAdminOrPatientOrPharma
                 location=OpenApiParameter.QUERY,
                 description='Filter by issue type (case-insensitive)',
                 examples=[
-                    OpenApiExample('Counterfeits', value='Counterfeit Suspected'),
-                    OpenApiExample('Quality Issues', value='Quality Issue'),
+                    OpenApiExample('Counterfeits', value='COUNTERFEIT'),
+                    OpenApiExample('Quality Issues', value='QUALITY'),
                 ]
             ),
             OpenApiParameter(
@@ -78,51 +91,44 @@ from accounts.permissions import IsPatientOrPharmacist, IsAdminOrPatientOrPharma
     ),
     retrieve=extend_schema(
         summary="Retrieve crowd flag details",
-        description="Get detailed information about a specific quality report including severity and resolution status.",
+        description="Get detailed information about a specific quality report including severity and investigation status.",
         tags=['Flags'],
     ),
     create=extend_schema(
-        summary="Create new crowd flag",
+        summary="Create new crowd flag / incident report",
         description="""
-        Submit a quality report with severity categorization.
-        
+        Submit a quality report with severity categorization and optional evidence.
+
         **Severity Levels & Trust Score Impact:**
         - CRITICAL: -15.00 points (counterfeits, safety hazards)
         - HIGH: -10.00 points (significant quality issues)
         - MEDIUM: -5.00 points (notable concerns) [DEFAULT]
         - LOW: -2.00 points (minor issues)
-        
+
         **Auto-Populated Fields:**
         - `user`: Automatically set to authenticated user (DO NOT include!)
         - `created_at`: Auto-timestamp
-        - `is_resolved`: Defaults to false
-        
+        - `status`: Defaults to NEW
+
+        **Accepts multipart/form-data** for image uploads via `evidence_image`.
+
         **Side Effect:**
         ⚠️ Automatically decreases lot trust_score in REAL-TIME based on severity!
-        
+
         **DO NOT include** the `user` field in your request!
         """,
         tags=['Flags'],
         examples=[
             OpenApiExample(
-                'Critical - Counterfeit Suspected',
+                'Critical - Counterfeit with Evidence',
                 value={
                     "reporter_type": "Pharmacist",
-                    "issue_type": "Counterfeit Suspected",
+                    "issue_type": "COUNTERFEIT",
                     "severity": "CRITICAL",
-                    "description": "Fake hologram detected, packaging differs from authentic batches. Seal appears professionally resealed.",
-                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
-                },
-                request_only=True,
-            ),
-            OpenApiExample(
-                'High - Quality Issue',
-                value={
-                    "reporter_type": "Pharmacist",
-                    "issue_type": "Quality Issue",
-                    "severity": "HIGH",
-                    "description": "Tablets are discolored and crumbling. Unusual odor detected.",
-                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
+                    "description": "Fake hologram detected, packaging differs from authentic batches.",
+                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7",
+                    "dispensing_pharmacy_name": "City Pharmacy",
+                    "date_of_purchase": "2026-06-10",
                 },
                 request_only=True,
             ),
@@ -130,21 +136,10 @@ from accounts.permissions import IsPatientOrPharmacist, IsAdminOrPatientOrPharma
                 'Medium - Packaging Damage',
                 value={
                     "reporter_type": "Patient",
-                    "issue_type": "Packaging Damage",
+                    "issue_type": "PACKAGING",
                     "severity": "MEDIUM",
                     "description": "Seal appears tampered with, but contents seem intact.",
-                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
-                },
-                request_only=True,
-            ),
-            OpenApiExample(
-                'Low - Minor Issue',
-                value={
-                    "reporter_type": "Patient",
-                    "issue_type": "Minor Issue",
-                    "severity": "LOW",
-                    "description": "Label slightly faded but still readable. No quality concerns.",
-                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7"
+                    "lot": "494466b3-0f94-4f5c-8a12-38e403fcf3e7",
                 },
                 request_only=True,
             ),
@@ -168,167 +163,201 @@ from accounts.permissions import IsPatientOrPharmacist, IsAdminOrPatientOrPharma
 )
 class CrowdFlagViewSet(viewsets.ModelViewSet):
     """
-    ViewSet for crowdsourced quality reporting.
-    
+    ViewSet for crowdsourced quality reporting / Incident Management.
+
     Provides CRUD operations for CrowdFlag model with the following features:
     - List all crowd flags (paginated)
     - Retrieve individual flag details
-    - Create new flags (patients and pharmacists)
-    - Update flag information
-    - Delete flags
+    - Create new flags with optional image evidence (patients and pharmacists)
+    - Investigation lifecycle actions (Admin only):
+        - start_investigation: NEW → INVESTIGATING
+        - escalate: → ESCALATED_DISTRIBUTOR / ESCALATED_REGULATOR
+        - resolve: → RESOLVED
     - Automatic user association with authenticated user
-    - Filter by resolution status, issue type, reporter type
+    - Filter by status, severity, issue type, reporter type
     - Search by description
-    
+
     Permissions:
-    - All operations: Patients and pharmacists can access
+    - All operations: Patients, pharmacists, and admins can access
     - User field is automatically set to request.user on creation
+    - Lifecycle actions restricted to Admin role
     """
-    
+
     queryset = CrowdFlag.objects.all().select_related('user', 'lot')
     serializer_class = CrowdFlagSerializer
     permission_classes = [IsAdminOrPatientOrPharmacist]
-    
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
     # Enable search by description and issue type
     search_fields = ['description', 'issue_type']
     # Enable ordering
-    ordering_fields = ['created_at', 'issue_type', 'is_resolved']
+    ordering_fields = ['created_at', 'issue_type', 'status', 'severity']
     ordering = ['-created_at']  # Default ordering (newest first)
-    
+
     def get_queryset(self):
         """
         Optionally filter crowd flags by various criteria.
-        
+
         Query params:
-            resolved (bool): Filter by resolution status
+            resolved (bool): Filter by resolution status (backward-compat)
+            status (str): Comma-separated list of statuses to include
             issue_type (str): Filter by issue type
             reporter_type (str): Filter by reporter type
             severity (str): Filter by severity level (CRITICAL, HIGH, MEDIUM, LOW)
             lot (uuid): Filter by lot manifest ID
             my_flags (bool): Filter to show only current user's flags
-        
+
         Returns:
             QuerySet: Filtered crowd flag queryset
         """
         queryset = super().get_queryset()
-        
-        # Filter by resolution status if param provided
+
+        # Filter by status (new lifecycle param — comma-separated)
+        status_param = self.request.query_params.get('status', None)
+        if status_param:
+            statuses = [s.strip().upper() for s in status_param.split(',')]
+            queryset = queryset.filter(status__in=statuses)
+
+        # Filter by resolution status (backward-compatible)
         resolved = self.request.query_params.get('resolved', None)
         if resolved is not None:
             resolved_bool = resolved.lower() == 'true'
-            queryset = queryset.filter(is_resolved=resolved_bool)
-        
+            if resolved_bool:
+                queryset = queryset.filter(status__in=TERMINAL_STATUSES)
+            else:
+                queryset = queryset.filter(status__in=ACTIVE_STATUSES)
+
         # Filter by issue type if param provided
         issue_type = self.request.query_params.get('issue_type', None)
         if issue_type:
             queryset = queryset.filter(issue_type__icontains=issue_type)
-        
+
         # Filter by reporter type if param provided
         reporter_type = self.request.query_params.get('reporter_type', None)
         if reporter_type:
             queryset = queryset.filter(reporter_type__icontains=reporter_type)
-        
+
         # Filter by severity if param provided
         severity = self.request.query_params.get('severity', None)
         if severity:
             queryset = queryset.filter(severity=severity.upper())
-        
+
         # Filter by lot if param provided
         lot_id = self.request.query_params.get('lot', None)
         if lot_id:
             queryset = queryset.filter(lot_id=lot_id)
-        
+
         # Filter to show only current user's flags if requested.
         # Admins always see all flags, regardless of this param.
         my_flags = self.request.query_params.get('my_flags', None)
         if my_flags and my_flags.lower() == 'true':
             if getattr(self.request.user, 'role', None) != 'Admin':
                 queryset = queryset.filter(user=self.request.user)
-        
+
         return queryset
-    
+
     def perform_create(self, serializer):
         """
         Override create to automatically associate the authenticated user.
-        
+
         The user field is set to the current authenticated user
         and cannot be manually specified in the request data.
-        
+
         Args:
             serializer: The CrowdFlagSerializer instance
         """
         # Automatically set the user to the authenticated user
         serializer.save(user=self.request.user)
-    
+
+    # ── Investigation Lifecycle Actions ──────────────────────────────────────
+
+    def _append_notes(self, flag, notes, action_label):
+        """Helper to append timestamped notes to investigator_notes."""
+        if notes:
+            ts = timezone.now().strftime('%Y-%m-%d %H:%M UTC')
+            user = self.request.user.username
+            entry = f"[{ts}] ({action_label} by {user}) {notes}"
+            if flag.investigator_notes:
+                flag.investigator_notes += f"\n{entry}"
+            else:
+                flag.investigator_notes = entry
+
     @extend_schema(
-        summary="Mark flag as resolved",
+        summary="Start investigation on a flag",
         description="""
-        Mark a quality report as resolved after investigation.
-        
+        Transition a flag from NEW to INVESTIGATING status.
+
+        **Request Body (JSON):**
+        - `notes` (string, optional): Investigation notes to append.
+
+        **Side Effect:** Status changes to INVESTIGATING, notes are timestamped and appended.
+        """,
+        tags=['Flags'],
+        responses={200: CrowdFlagSerializer},
+    )
+    @action(detail=True, methods=['post'])
+    def start_investigation(self, request, pk=None):
+        """Transition status to INVESTIGATING and append notes."""
+        flag = self.get_object()
+        flag.status = 'INVESTIGATING'
+        self._append_notes(flag, request.data.get('notes', ''), 'Investigation Started')
+        flag.save()
+        return Response(self.get_serializer(flag).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Escalate a flag",
+        description="""
+        Escalate a flag to a Distributor or Regulator.
+
+        **Request Body (JSON):**
+        - `escalate_to` (string, required): One of `DISTRIBUTOR` or `REGULATOR`.
+        - `notes` (string, optional): Escalation notes to append.
+
+        **Side Effect:** Status changes to ESCALATED_DISTRIBUTOR or ESCALATED_REGULATOR.
+        """,
+        tags=['Flags'],
+        responses={200: CrowdFlagSerializer},
+    )
+    @action(detail=True, methods=['post'])
+    def escalate(self, request, pk=None):
+        """Escalate flag to distributor or regulator."""
+        flag = self.get_object()
+        target = request.data.get('escalate_to', '').upper()
+        if target == 'DISTRIBUTOR':
+            flag.status = 'ESCALATED_DISTRIBUTOR'
+        elif target == 'REGULATOR':
+            flag.status = 'ESCALATED_REGULATOR'
+        else:
+            return Response(
+                {'detail': 'escalate_to must be DISTRIBUTOR or REGULATOR.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self._append_notes(flag, request.data.get('notes', ''), f'Escalated to {target.title()}')
+        flag.save()
+        return Response(self.get_serializer(flag).data, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        summary="Resolve a flag",
+        description="""
+        Mark a flag as RESOLVED after investigation.
+
+        **Request Body (JSON):**
+        - `notes` (string, optional): Resolution notes to append.
+
         **Side Effect:**
         ⚠️ Automatically recalculates lot trust_score in REAL-TIME!
-        The trust score will INCREASE as this flag is no longer counted in penalties.
-        
-        **No request body required** - Just POST to this endpoint.
-        
-        Typically used by administrators after investigation.
         """,
         tags=['Flags'],
         responses={200: CrowdFlagSerializer},
     )
     @action(detail=True, methods=['post'])
     def resolve(self, request, pk=None):
-        """
-        Custom action to mark a crowd flag as resolved.
-        
-        Args:
-            request: The HTTP request object
-            pk: The primary key (UUID) of the crowd flag to resolve
-        
-        Returns:
-            Response: Updated crowd flag data with is_resolved=True
-        """
-        crowd_flag = self.get_object()
-        crowd_flag.is_resolved = True
-        crowd_flag.save()
-        
-        serializer = self.get_serializer(crowd_flag)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-    
-    @extend_schema(
-        summary="Mark flag as unresolved",
-        description="""
-        Mark a quality report as unresolved (reopen a resolved issue).
-        
-        **Side Effect:**
-        ⚠️ Automatically recalculates lot trust_score in REAL-TIME!
-        The trust score will DECREASE as this flag is now counted in penalties again.
-        
-        **No request body required** - Just POST to this endpoint.
-        
-        Used to reopen resolved issues if new information emerges.
-        """,
-        tags=['Flags'],
-        responses={200: CrowdFlagSerializer},
-    )
-    @action(detail=True, methods=['post'])
-    def unresolve(self, request, pk=None):
-        """
-        Custom action to mark a crowd flag as unresolved.
-        
-        Args:
-            request: The HTTP request object
-            pk: The primary key (UUID) of the crowd flag to unresolve
-        
-        Returns:
-            Response: Updated crowd flag data with is_resolved=False
-        """
-        crowd_flag = self.get_object()
-        crowd_flag.is_resolved = False
-        crowd_flag.save()
-        
-        serializer = self.get_serializer(crowd_flag)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        """Mark flag as RESOLVED and append resolution notes."""
+        flag = self.get_object()
+        flag.status = 'RESOLVED'
+        self._append_notes(flag, request.data.get('notes', ''), 'Resolved')
+        flag.save()
+        return Response(self.get_serializer(flag).data, status=status.HTTP_200_OK)
 
     @extend_schema(
         summary="Get Heatmap Data",
@@ -342,8 +371,8 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
         Optimized with select_related to prevent N+1 DB queries on the lot.
         """
         flags = CrowdFlag.objects.filter(
-            is_resolved=False, 
-            latitude__isnull=False, 
+            status__in=ACTIVE_STATUSES,
+            latitude__isnull=False,
             longitude__isnull=False
         ).select_related('lot__medicine')
 
@@ -356,5 +385,5 @@ class CrowdFlagViewSet(viewsets.ModelViewSet):
                 'severity': flag.severity,
                 'medicine_name': flag.lot.medicine.name if flag.lot and flag.lot.medicine else "Unknown Medicine"
             })
-            
+
         return Response(results, status=status.HTTP_200_OK)

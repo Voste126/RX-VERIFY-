@@ -113,7 +113,7 @@ class LotManifest(models.Model):
         base_score = Decimal('100.00')
         
         # Get all unresolved flags for this lot
-        unresolved_flags = self.crowd_flags.filter(is_resolved=False)
+        unresolved_flags = self.crowd_flags.exclude(status__in=['RESOLVED', 'CLOSED_NO_ACTION'])
         
         # Severity penalties updated per Phase 1 requirements
         severity_penalties = {

@@ -107,7 +107,13 @@ const PharmacistInventoryDashboard: React.FC = () => {
   });
 
   // ── Report Issue tab state ─────────────────────────────────────────────────
-  const ISSUE_TYPES = ['Counterfeit Suspected','Quality Issue','Packaging Damage','Wrong Medicine','Missing Seal','General Concern'];
+  const ISSUE_TYPES = [
+    { value: 'COUNTERFEIT', label: 'Counterfeit Suspected' },
+    { value: 'QUALITY', label: 'Quality Issue' },
+    { value: 'PACKAGING', label: 'Packaging Damage' },
+    { value: 'ADVERSE_EVENT', label: 'Adverse Reaction' },
+    { value: 'MISSING_MANIFEST', label: 'Missing Manifest / Seal' },
+  ];
   const ISSUE_TAGS  = ['Broken Seal','Suspected Forgery','Label Discrepancy','Wrong Color/Shape','Missing Batch #','Adverse Reaction'];
   const RISK_OPTIONS: { value: FlagSeverity; label: string; color: string; desc: string }[] = [
     { value: 'LOW',      label: 'Low Risk',   color: 'border-blue-400/50 bg-blue-500/10 text-blue-400',     desc: 'Cosmetic damage or minor label issue.' },
@@ -123,6 +129,9 @@ const PharmacistInventoryDashboard: React.FC = () => {
   const [reportLoading, setReportLoading] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
+  const [dispensingPharmacyName, setDispensingPharmacyName] = useState('');
+  const [dateOfPurchase, setDateOfPurchase] = useState('');
 
   // Form states
   const [selectedDistributor, setSelectedDistributor] = useState('');
@@ -412,7 +421,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
           lot: manifestDetails.manifest_id,
           severity: 'HIGH',
           reporter_type: 'Pharmacist',
-          issue_type: 'Quality Issue',
+          issue_type: 'QUALITY',
           description: 'Shipment rejected during pre-receipt validation due to existing trust score warnings.',
         });
         closeInspectModal();
@@ -494,6 +503,9 @@ const PharmacistInventoryDashboard: React.FC = () => {
         reporter_type: 'Pharmacist',
         issue_type: selectedIssueType || 'General Concern',
         description: fullDesc,
+        dispensing_pharmacy_name: dispensingPharmacyName,
+        date_of_purchase: dateOfPurchase,
+        evidence_image: evidenceImage || undefined,
       });
       setReportSuccess(true);
       setSelectedRisk(null);
@@ -501,6 +513,9 @@ const PharmacistInventoryDashboard: React.FC = () => {
       setSelectedTags([]);
       setReportDescription('');
       setReportBatchId('');
+      setEvidenceImage(null);
+      setDispensingPharmacyName('');
+      setDateOfPurchase('');
     } catch (err: any) {
       const d = err.response?.data;
       setReportError(typeof d === 'string' ? d : d?.detail ?? d?.lot?.[0] ?? 'Failed to submit report.');
@@ -920,11 +935,11 @@ const PharmacistInventoryDashboard: React.FC = () => {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {ISSUE_TYPES.map(it => (
-                      <button key={it} type="button"
-                        onClick={() => setSelectedIssueType(prev => prev === it ? '' : it)}
+                      <button key={it.value} type="button"
+                        onClick={() => setSelectedIssueType(prev => prev === it.value ? '' : it.value)}
                         className={`px-3 py-1.5 rounded-full border text-sm font-medium transition-all ${
-                          selectedIssueType === it ? 'bg-primary border-primary text-white' : 'border-gray-700 text-gray-300 hover:border-gray-500'
-                        }`}>{it}</button>
+                          selectedIssueType === it.value ? 'bg-primary border-primary text-white' : 'border-gray-700 text-gray-300 hover:border-gray-500'
+                        }`}>{it.label}</button>
                     ))}
                   </div>
                 </div>
@@ -963,6 +978,50 @@ const PharmacistInventoryDashboard: React.FC = () => {
                           selectedTags.includes(tag) ? 'bg-primary/20 border-primary/50 text-primary' : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
                         }`}>{tag}</button>
                     ))}
+                  </div>
+                </div>
+
+                {/* Purchase Details & Evidence */}
+                <div className="bg-[#151923] rounded-2xl border border-gray-700 p-5 space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Icon name="storefront" className="text-primary" />
+                    <h3 className="font-bold">Pharmacy & Evidence</h3>
+                    <span className="ml-auto text-xs text-gray-500 font-semibold">OPTIONAL</span>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Dispensing Pharmacy</label>
+                    <input 
+                      type="text"
+                      value={dispensingPharmacyName}
+                      onChange={(e) => setDispensingPharmacyName(e.target.value)}
+                      placeholder="Pharmacy or store name"
+                      className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary/50 focus:outline-none placeholder-gray-600"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">Date of Purchase</label>
+                      <input 
+                        type="date"
+                        value={dateOfPurchase}
+                        onChange={(e) => setDateOfPurchase(e.target.value)}
+                        className="w-full px-4 py-3 bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary/50 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">Photographic Evidence</label>
+                      <input 
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setEvidenceImage(e.target.files[0]);
+                          }
+                        }}
+                        className="w-full bg-[#0a0e1a] border border-gray-700 rounded-lg text-white text-sm focus:ring-2 focus:ring-primary/50 file:mr-2 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-primary/20 file:text-primary"
+                      />
+                    </div>
                   </div>
                 </div>
 

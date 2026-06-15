@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Package, ClipboardCheck, Plus, QrCode, Loader2, Lock, LockOpen, CheckCircle, AlertTriangle } from 'lucide-react';
 import { QRCodeCanvas as QRCode } from 'qrcode.react';
+import { useQRScanner } from '../hooks/useQRScanner';
 
 import { 
   createOrder, 
@@ -51,6 +52,18 @@ const PharmacistOrderDashboard: React.FC = () => {
   const [scannedPhysicalUuid, setScannedPhysicalUuid] = useState('');
   const [verificationMatch, setVerificationMatch] = useState<'match' | 'mismatch' | null>(null);
   const [locked, setLocked] = useState(true);
+  
+  // Scanner for Inspect Modal
+  const onInspectDetectedRef = React.useRef<(data: string) => void>(() => {});
+  const { 
+    videoRef: inspectVideoRef, 
+    cameraActive: inspectCameraActive, 
+    cameraError: inspectCameraError, 
+    startCamera: inspectStartCamera, 
+    stopCamera: inspectStopCamera 
+  } = useQRScanner({
+    onDetected: (data: string) => onInspectDetectedRef.current(data),
+  });
   
   // Error Modal state
   const showModal = (title: string, message: string, type: 'error' | 'success' | 'warning' | 'info' = 'info') => {
@@ -187,6 +200,7 @@ const PharmacistOrderDashboard: React.FC = () => {
     setScannedPhysicalUuid('');
     setVerificationMatch(null);
     setLocked(true);
+    inspectStopCamera();
   };
   
   const handlePhysicalScan = (scannedValue: string) => {
@@ -201,6 +215,8 @@ const PharmacistOrderDashboard: React.FC = () => {
       setVerificationMatch('mismatch');
     }
   };
+
+  onInspectDetectedRef.current = handlePhysicalScan;
   
   const handleCompleteVerification = async () => {
     if (verificationMatch === 'match' && manifestDetails && inspectingOrder) {
@@ -636,10 +652,29 @@ const PharmacistOrderDashboard: React.FC = () => {
                   )}
                   
                   {!verificationMatch && (
-                    <div className="p-6 rounded-xl bg-[#0a0e1a] border border-gray-700 text-center">
-                      <QrCode className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-                      <p className="text-gray-400 text-sm">Scan the physical package to verify authenticity</p>
-                    </div>
+                    !inspectCameraActive ? (
+                      <div className="p-6 rounded-xl bg-[#0a0e1a] border border-gray-700 text-center">
+                        <QrCode className="w-12 h-12 text-gray-600 mx-auto mb-3" />
+                        <p className="text-gray-400 text-sm mb-4">Scan the physical package to verify authenticity</p>
+                        <button
+                          onClick={inspectStartCamera}
+                          className="px-4 py-2 bg-blue-500/20 text-blue-400 rounded-lg font-bold border border-blue-500/30 hover:bg-blue-500/30"
+                        >
+                          Start Camera Scanner
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl overflow-hidden border-2 border-blue-500 relative">
+                        <video ref={inspectVideoRef} className="w-full h-48 object-cover" />
+                        <div className="absolute inset-0 bg-blue-500/10 pointer-events-none border-[3px] border-dashed border-blue-500 m-8 rounded-lg animate-pulse" />
+                        <button
+                          onClick={inspectStopCamera}
+                          className="absolute top-2 right-2 bg-black/50 text-white p-1 rounded-md text-xs hover:bg-black/80"
+                        >
+                          Stop
+                        </button>
+                      </div>
+                    )
                   )}
                 </div>
               </div>

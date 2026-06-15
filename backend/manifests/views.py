@@ -423,7 +423,7 @@ class LotManifestViewSet(viewsets.ModelViewSet):
             trust_status = "WARNING"
         
         # Count unresolved flags
-        flags_count = lot_manifest.crowd_flags.filter(is_resolved=False).count()
+        flags_count = lot_manifest.crowd_flags.exclude(status__in=['RESOLVED', 'CLOSED_NO_ACTION']).count()
         
         # Verify signature
         is_authentic = lot_manifest.verify_signature()

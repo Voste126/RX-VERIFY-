@@ -17,6 +17,14 @@ export interface AdminUser {
     last_name?: string;
 }
 
+export type IncidentStatus =
+    | 'NEW'
+    | 'INVESTIGATING'
+    | 'ESCALATED_DISTRIBUTOR'
+    | 'ESCALATED_REGULATOR'
+    | 'RESOLVED'
+    | 'CLOSED_NO_ACTION';
+
 export interface AdminCrowdFlag {
     id: string;
     lot: string;
@@ -28,7 +36,14 @@ export interface AdminCrowdFlag {
     user: string;
     user_username: string;
     created_at: string;
+    /** Backward-compatible computed boolean */
     is_resolved: boolean;
+    // ── Incident Lifecycle fields ──
+    status: IncidentStatus;
+    dispensing_pharmacy_name?: string;
+    date_of_purchase?: string;
+    evidence_image?: string | null;
+    investigator_notes?: string;
 }
 
 export interface AdminManifest {
@@ -105,12 +120,29 @@ export const fetchAllFlags = async (): Promise<AdminCrowdFlag[]> => {
     return extractList<AdminCrowdFlag>(res.data);
 };
 
-export const resolveFlag = async (id: string): Promise<void> => {
-    await api.post(`/flags/${id}/resolve/`);
+/** Transition a flag to INVESTIGATING status */
+export const startInvestigation = async (id: string, notes: string): Promise<AdminCrowdFlag> => {
+    const res = await api.post<AdminCrowdFlag>(`/flags/${id}/start_investigation/`, { notes });
+    return res.data;
 };
 
-export const unresolveFlag = async (id: string): Promise<void> => {
-    await api.post(`/flags/${id}/unresolve/`);
+/** Escalate a flag to Distributor or Regulator */
+export const escalateFlag = async (
+    id: string,
+    escalateTo: 'DISTRIBUTOR' | 'REGULATOR',
+    notes: string,
+): Promise<AdminCrowdFlag> => {
+    const res = await api.post<AdminCrowdFlag>(`/flags/${id}/escalate/`, {
+        escalate_to: escalateTo,
+        notes,
+    });
+    return res.data;
+};
+
+/** Mark a flag as RESOLVED with notes */
+export const resolveFlag = async (id: string, notes: string): Promise<AdminCrowdFlag> => {
+    const res = await api.post<AdminCrowdFlag>(`/flags/${id}/resolve/`, { notes });
+    return res.data;
 };
 
 // ── Manifests ─────────────────────────────────────────────────────────────────

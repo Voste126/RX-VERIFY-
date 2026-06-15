@@ -85,7 +85,7 @@ try:
     
     # Test 5: Resolve CRITICAL flag
     
-    flag1.is_resolved = True
+    flag1.status = 'RESOLVED'
     flag1.save()
     
     lot.refresh_from_db()
@@ -93,11 +93,11 @@ try:
     
     # Test 6: Resolve all remaining flags
     
-    flag2.is_resolved = True
+    flag2.status = 'RESOLVED'
     flag2.save()
-    flag3.is_resolved = True
+    flag3.status = 'RESOLVED'
     flag3.save()
-    flag4.is_resolved = True
+    flag4.status = 'RESOLVED'
     flag4.save()
     
     lot.refresh_from_db()

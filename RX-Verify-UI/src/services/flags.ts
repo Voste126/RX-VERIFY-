@@ -10,13 +10,21 @@ import { api } from './api';
 
 export type FlagSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
+export type IncidentStatus =
+    | 'NEW'
+    | 'INVESTIGATING'
+    | 'ESCALATED_DISTRIBUTOR'
+    | 'ESCALATED_REGULATOR'
+    | 'RESOLVED'
+    | 'CLOSED_NO_ACTION';
+
 export interface CrowdFlag {
     id: string;
     /** UUID of the LotManifest being flagged */
     lot: string;
     /** Batch number of the lot (read-only, from backend) */
     lot_batch_number: string;
-    /** e.g. "Counterfeit Suspected", "Quality Issue", "Packaging Damage" */
+    /** e.g. "COUNTERFEIT", "QUALITY", "PACKAGING", "ADVERSE_EVENT", "MISSING_MANIFEST" */
     issue_type: string;
     /** e.g. "Patient", "Pharmacist" */
     reporter_type: string;
@@ -30,7 +38,16 @@ export interface CrowdFlag {
     longitude?: number;
     region?: string;
     created_at: string;
+    /** Backward-compatible computed property */
     is_resolved: boolean;
+
+    // ── Investigation Lifecycle fields ────────────────────────────────────
+    status: IncidentStatus;
+    dispensing_pharmacy_name?: string;
+    date_of_purchase?: string;
+    /** URL to the uploaded evidence image (read-only) */
+    evidence_image?: string | null;
+    investigator_notes?: string;
 }
 
 export interface CreateFlagPayload {
@@ -42,6 +59,10 @@ export interface CreateFlagPayload {
     latitude?: number;
     longitude?: number;
     region?: string;
+    dispensing_pharmacy_name?: string;
+    date_of_purchase?: string;
+    /** File object — sent via FormData */
+    evidence_image?: File;
 }
 
 export interface HeatmapPoint {
@@ -72,11 +93,34 @@ export async function fetchMyFlags(): Promise<CrowdFlag[]> {
 }
 
 /**
- * Submit a new crowd flag for a lot manifest.
+ * Submit a new crowd flag / incident report for a lot manifest.
+ * Uses FormData to support image uploads.
  * The backend automatically sets `user = request.user`.
  */
 export async function createFlag(payload: CreateFlagPayload): Promise<CrowdFlag> {
-    const res = await api.post<CrowdFlag>(FLAGS_URL, payload);
+    const formData = new FormData();
+
+    // Append all text fields
+    formData.append('lot', payload.lot);
+    formData.append('severity', payload.severity);
+    formData.append('reporter_type', payload.reporter_type);
+    formData.append('issue_type', payload.issue_type);
+    formData.append('description', payload.description);
+
+    if (payload.latitude !== undefined)  formData.append('latitude', String(payload.latitude));
+    if (payload.longitude !== undefined) formData.append('longitude', String(payload.longitude));
+    if (payload.region)                  formData.append('region', payload.region);
+    if (payload.dispensing_pharmacy_name) formData.append('dispensing_pharmacy_name', payload.dispensing_pharmacy_name);
+    if (payload.date_of_purchase)        formData.append('date_of_purchase', payload.date_of_purchase);
+
+    // Append image file if provided
+    if (payload.evidence_image) {
+        formData.append('evidence_image', payload.evidence_image);
+    }
+
+    const res = await api.post<CrowdFlag>(FLAGS_URL, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
     return res.data;
 }
 
@@ -85,5 +129,39 @@ export async function createFlag(payload: CreateFlagPayload): Promise<CrowdFlag>
  */
 export async function getHeatmapData(): Promise<HeatmapPoint[]> {
     const res = await api.get<HeatmapPoint[]>(`${FLAGS_URL}heatmap_data/`);
+    return res.data;
+}
+
+// ─── Investigation Lifecycle Actions ───────────────────────────────────────────
+
+/**
+ * Transition a flag to INVESTIGATING status.
+ */
+export async function startInvestigation(id: string, notes: string): Promise<CrowdFlag> {
+    const res = await api.post<CrowdFlag>(`${FLAGS_URL}${id}/start_investigation/`, { notes });
+    return res.data;
+}
+
+/**
+ * Escalate a flag to a Distributor or Regulator.
+ * @param escalateTo — 'DISTRIBUTOR' | 'REGULATOR'
+ */
+export async function escalateFlag(
+    id: string,
+    escalateTo: 'DISTRIBUTOR' | 'REGULATOR',
+    notes: string,
+): Promise<CrowdFlag> {
+    const res = await api.post<CrowdFlag>(`${FLAGS_URL}${id}/escalate/`, {
+        escalate_to: escalateTo,
+        notes,
+    });
+    return res.data;
+}
+
+/**
+ * Mark a flag as RESOLVED with resolution notes.
+ */
+export async function resolveFlag(id: string, notes: string): Promise<CrowdFlag> {
+    const res = await api.post<CrowdFlag>(`${FLAGS_URL}${id}/resolve/`, { notes });
     return res.data;
 }

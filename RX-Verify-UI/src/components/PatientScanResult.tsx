@@ -44,8 +44,11 @@ const PatientScanResult: React.FC = () => {
   
   // Reporting Issue State
   const [showReportForm, setShowReportForm] = useState(false);
-  const [reportIssueType, setReportIssueType] = useState('Quality Issue');
+  const [reportIssueType, setReportIssueType] = useState('QUALITY');
   const [reportDescription, setReportDescription] = useState('');
+  const [dispensingPharmacyName, setDispensingPharmacyName] = useState('');
+  const [dateOfPurchase, setDateOfPurchase] = useState('');
+  const [evidenceImage, setEvidenceImage] = useState<File | null>(null);
   const [reporting, setReporting] = useState(false);
   const [acquiringLocation, setAcquiringLocation] = useState(false);
   const [reportSuccess, setReportSuccess] = useState(false);
@@ -112,19 +115,31 @@ const PatientScanResult: React.FC = () => {
       const token = sessionStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
-      await api.post('/flags/', {
-        lot: uuid,
-        issue_type: reportIssueType,
-        description: reportDescription,
-        severity: reportIssueType === 'Counterfeit Suspected' ? 'CRITICAL' : 'HIGH',
-        reporter_type: 'Patient',
-        ...(lat !== undefined && { latitude: lat }),
-        ...(lng !== undefined && { longitude: lng })
-      }, { headers });
+      const formData = new FormData();
+      formData.append('lot', uuid);
+      formData.append('issue_type', reportIssueType);
+      formData.append('description', reportDescription);
+      formData.append('severity', reportIssueType === 'COUNTERFEIT' ? 'CRITICAL' : 'HIGH');
+      formData.append('reporter_type', 'Patient');
+      if (lat !== undefined) formData.append('latitude', lat.toString());
+      if (lng !== undefined) formData.append('longitude', lng.toString());
+      if (dispensingPharmacyName) formData.append('dispensing_pharmacy_name', dispensingPharmacyName);
+      if (dateOfPurchase) formData.append('date_of_purchase', dateOfPurchase);
+      if (evidenceImage) formData.append('evidence_image', evidenceImage);
+      
+      await api.post('/flags/', formData, { 
+        headers: { 
+          ...headers,
+          'Content-Type': 'multipart/form-data'
+        } 
+      });
       
       setReportSuccess(true);
       setShowReportForm(false);
       setReportDescription('');
+      setDispensingPharmacyName('');
+      setDateOfPurchase('');
+      setEvidenceImage(null);
       
       // Re-fetch to update TrustGauge
       await verifyCode(uuid);
@@ -363,12 +378,49 @@ const PatientScanResult: React.FC = () => {
                       onChange={(e) => setReportIssueType(e.target.value)}
                       className="w-full bg-[#0a0e1a] border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:ring-2 focus:ring-orange-500/50 appearance-none"
                     >
-                      <option value="Quality Issue">Quality Issue</option>
-                      <option value="Packaging Damage">Packaging Damage / Broken Seal</option>
-                      <option value="Missing Seal">Missing Seal</option>
-                      <option value="Counterfeit Suspected">Counterfeit Suspected</option>
-                      <option value="Adverse Reaction">Adverse Patient Reaction</option>
+                      <option value="QUALITY">Quality Issue</option>
+                      <option value="PACKAGING">Packaging Damage</option>
+                      <option value="MISSING_MANIFEST">Missing Manifest / Seal</option>
+                      <option value="COUNTERFEIT">Counterfeit Suspected</option>
+                      <option value="ADVERSE_EVENT">Adverse Event</option>
                     </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">Where did you purchase this?</label>
+                    <input 
+                      type="text"
+                      value={dispensingPharmacyName}
+                      onChange={(e) => setDispensingPharmacyName(e.target.value)}
+                      placeholder="Pharmacy or store name"
+                      className="w-full bg-[#0a0e1a] border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:ring-2 focus:ring-orange-500/50"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">Date of Purchase</label>
+                      <input 
+                        type="date"
+                        value={dateOfPurchase}
+                        onChange={(e) => setDateOfPurchase(e.target.value)}
+                        className="w-full bg-[#0a0e1a] border border-gray-700 rounded-xl px-4 py-3 text-white text-sm focus:ring-2 focus:ring-orange-500/50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">Photographic Evidence</label>
+                      <input 
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => {
+                          if (e.target.files && e.target.files[0]) {
+                            setEvidenceImage(e.target.files[0]);
+                          }
+                        }}
+                        className="w-full bg-[#0a0e1a] border border-gray-700 rounded-xl px-2 py-2 text-white text-sm focus:ring-2 focus:ring-orange-500/50 file:mr-2 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-orange-500/20 file:text-orange-400"
+                      />
+                    </div>
                   </div>
                   
                   <div>

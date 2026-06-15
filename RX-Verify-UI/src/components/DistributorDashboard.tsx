@@ -8,6 +8,8 @@ import { distributorService, type Medicine, type LotManifest, type DistributorEn
 import { authService } from '../services/auth';
 import { getDistributorOrders, fulfillOrder, type SupplyOrder } from '../services/orders';
 import TrustBadge from './TrustBadge';
+import api from '../services/api';
+import type { CrowdFlag } from '../services/flags';
 
 interface DashboardStats {
   totalMedicines: number;
@@ -34,6 +36,7 @@ const DistributorDashboard: React.FC = () => {
   const [medicines, setMedicines] = useState<Medicine[]>([]);
   const [manifests, setManifests] = useState<LotManifest[]>([]);
   const [orders, setOrders] = useState<SupplyOrder[]>([]);
+  const [incidents, setIncidents] = useState<CrowdFlag[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalMedicines: 0,
     totalManifests: 0,
@@ -116,6 +119,7 @@ const DistributorDashboard: React.FC = () => {
             await loadMedicines(entity.id);
             await loadManifests(entity.id);
             await loadOrders();
+            await loadIncidents();
           } else {
             setStats(prev => ({ ...prev, entityStatus: 'none' }));
             sessionStorage.removeItem('distributor_entity_id');
@@ -162,6 +166,14 @@ const DistributorDashboard: React.FC = () => {
         pendingOrders: pending.length 
       }));
     } catch (error) {
+    }
+  };
+  
+  const loadIncidents = async () => {
+    try {
+      const res = await api.get('/flags/?status=ESCALATED_DISTRIBUTOR');
+      setIncidents(res.data.results || res.data);
+    } catch (e) {
     }
   };
   
@@ -463,6 +475,23 @@ const DistributorDashboard: React.FC = () => {
           </button>
           
           <button
+            onClick={() => setActiveTab('incidents')}
+            className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
+              activeTab === 'incidents'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-gray-400 hover:bg-[#0a0e1a]/50 hover:text-white'
+            }`}
+          >
+            <Icon name="report_problem" />
+            <span className="text-sm font-medium">Escalated Incidents</span>
+            {incidents.length > 0 && (
+              <span className="ml-auto bg-[#FF6B00] text-white text-xs font-bold rounded-full px-2 py-0.5">
+                {incidents.length}
+              </span>
+            )}
+          </button>
+          
+          <button
             onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-3 px-3 py-3 rounded-xl transition-colors ${
               activeTab === 'settings'
@@ -498,6 +527,7 @@ const DistributorDashboard: React.FC = () => {
               {activeTab === 'medicines' && 'Medicine Catalog'}
               {activeTab === 'orders' && 'Pending Orders'}
               {activeTab === 'manifests' && 'Lot Manifests'}
+              {activeTab === 'incidents' && 'Escalated Incidents'}
               {activeTab === 'settings' && 'Settings'}
             </h2>
           </div>
@@ -1035,29 +1065,45 @@ const DistributorDashboard: React.FC = () => {
                   <p className="mt-4 text-gray-400">No medicines registered yet</p>
                 </div>
               ) : (
-                <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm overflow-hidden">
-                  <table className="w-full">
-                    <thead className="bg-[#0a0e1a] border-b border-gray-700">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Active Ingredient</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Strength</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Form</th>
-                        <th className="px-6 py-3 text-left text-xs font-bold text-gray-400 uppercase">Category</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-700">
-                      {medicines.map((medicine) => (
-                        <tr key={medicine.id} className="hover:bg-[#0a0e1a]/50 transition-colors">
-                          <td className="px-6 py-4 text-sm font-bold text-white">{medicine.name}</td>
-                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.active_ingredient}</td>
-                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.strength}</td>
-                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.dosage_form}</td>
-                          <td className="px-6 py-4 text-sm text-gray-400">{medicine.category}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {medicines.map((medicine) => (
+                    <div key={medicine.id} className="bg-[#151923] rounded-2xl border border-gray-700 p-6 flex flex-col hover:border-gray-500 transition-all shadow-sm hover:shadow-md">
+                      <div className="flex justify-between items-start mb-6">
+                        <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                          <Icon name="medication" className="text-2xl text-blue-400" />
+                        </div>
+                        <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
+                          <Icon name="verified" className="text-[14px] text-green-400" />
+                          <span className="text-[10px] font-bold text-green-400 uppercase tracking-wide">Verified Manufacturer</span>
+                        </div>
+                      </div>
+
+                      <div className="mb-6">
+                        <h4 className="text-xl font-bold text-white mb-1">{medicine.name}</h4>
+                        <p className="text-sm text-gray-400">{medicine.active_ingredient}</p>
+                      </div>
+
+                      <div className="space-y-4 mb-8 flex-grow">
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-500 font-bold uppercase text-[11px] tracking-wider">Strength</span>
+                          <span className="text-white font-bold">{medicine.strength}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-500 font-bold uppercase text-[11px] tracking-wider">Form</span>
+                          <span className="text-gray-300">{medicine.dosage_form}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className="text-gray-500 font-bold uppercase text-[11px] tracking-wider">Category</span>
+                          <span className="text-blue-400 font-medium">{medicine.category}</span>
+                        </div>
+                      </div>
+
+                      <button className="w-full py-3 bg-[#0a0e1a] hover:bg-white/5 border border-gray-700 rounded-xl text-sm font-bold text-white transition-colors flex justify-center items-center gap-2 group">
+                        View Full Details
+                        <Icon name="arrow_forward" className="text-[18px] text-gray-400 group-hover:text-white transition-colors" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -1133,6 +1179,94 @@ const DistributorDashboard: React.FC = () => {
             </div>
           )}
           
+          {/* Incidents Tab */}
+          {activeTab === 'incidents' && (
+            <div className="max-w-[1600px] mx-auto flex flex-col gap-6">
+              <div className="bg-[#151923] rounded-2xl border border-gray-700 shadow-sm overflow-hidden">
+                <div className="p-6 border-b border-gray-700 flex justify-between items-center bg-[#151923] sticky top-0 z-10">
+                  <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                    <Icon name="report_problem" className="text-warning" />
+                    Incidents Escalated to You
+                  </h3>
+                  <button onClick={loadIncidents} className="text-primary hover:text-white flex items-center gap-2">
+                    <Icon name="refresh" /> Refresh
+                  </button>
+                </div>
+                
+                {incidents.length === 0 ? (
+                  <div className="p-16 text-center">
+                    <Icon name="check_circle" className="text-5xl text-gray-600 mb-4" />
+                    <p className="text-xl font-bold text-white mb-2">No Escalated Incidents</p>
+                    <p className="text-gray-400">There are currently no quality flags escalated to your distributor entity.</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-700">
+                    {incidents.map((incident) => (
+                      <div key={incident.id} className="p-6 hover:bg-[#0a0e1a]/50 transition-colors flex flex-col md:flex-row gap-6">
+                        {incident.evidence_image && (
+                          <div className="shrink-0 w-48 h-48 rounded-xl overflow-hidden bg-black/50 border border-gray-600 flex items-center justify-center">
+                            <img 
+                              src={incident.evidence_image.startsWith('http') ? incident.evidence_image : `http://localhost:8000${incident.evidence_image}`} 
+                              alt="Evidence" 
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 space-y-4">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="px-2 py-0.5 rounded-full border text-[10px] font-bold text-warning border-warning bg-warning/10">
+                                  {incident.severity}
+                                </span>
+                                <span className="text-sm font-bold text-white">{incident.issue_type}</span>
+                              </div>
+                              <h4 className="text-lg font-bold text-white">{incident.lot_batch_number || incident.lot}</h4>
+                            </div>
+                            <span className="text-xs text-gray-400 flex items-center gap-1">
+                              <Icon name="schedule" className="text-[14px]"/>
+                              {new Date(incident.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          
+                          {incident.description && (
+                            <p className="text-sm text-gray-300 leading-relaxed bg-gray-800/50 p-3 rounded-lg border border-gray-700/50">
+                              "{incident.description}"
+                            </p>
+                          )}
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Point of Dispensing</p>
+                              <p className="text-sm text-white">{incident.dispensing_pharmacy_name || 'Not specified'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Date of Purchase</p>
+                              <p className="text-sm text-white">{incident.date_of_purchase || 'Not specified'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Reporter Type</p>
+                              <p className="text-sm text-white">{incident.reporter_type}</p>
+                            </div>
+                          </div>
+                          
+                          {incident.investigator_notes && (
+                            <div>
+                              <p className="text-xs text-gray-500 uppercase font-bold tracking-wider mb-1">Audit Trail & Notes</p>
+                              <div className="bg-black/30 rounded-lg p-3 text-xs text-gray-400 font-mono whitespace-pre-wrap border border-gray-700 h-24 overflow-y-auto">
+                                {incident.investigator_notes}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="max-w-[1600px] mx-auto flex flex-col gap-6">

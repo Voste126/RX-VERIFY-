@@ -162,7 +162,7 @@ class LotManifestSerializer(serializers.ModelSerializer):
                 "is_authentic": False
             }
             
-        unresolved_flags = obj.crowd_flags.filter(is_resolved=False)
+        unresolved_flags = obj.crowd_flags.exclude(status__in=['RESOLVED', 'CLOSED_NO_ACTION'])
         severity_penalties = {
             'CRITICAL': Decimal('30.00'),
             'HIGH': Decimal('20.00'),

@@ -11,7 +11,7 @@ import { authService } from '../services/auth';
 import {
   fetchAllUsers, fetchAllFlags, fetchAllManifests,
   fetchAllMedicines, fetchAllDistributors, fetchAllReceipts, fetchAllOrders,
-  resolveFlag, unresolveFlag, updateOrderStatus,
+  startInvestigation, escalateFlag, resolveFlag, updateOrderStatus,
 } from '../services/admin';
 import type { 
   AdminUser, AdminCrowdFlag, AdminManifest, 
@@ -58,20 +58,24 @@ const trustCol = (n: number) => n >= 80 ? '#00C853' : n >= 60 ? '#FFD600' : '#D5
 const FlagDetailModal: React.FC<{
   flag: import('../services/admin').AdminCrowdFlag | null;
   onClose: () => void;
-  onResolve: (id: string, resolved: boolean) => void;
-  resolving: string | null;
-}> = ({ flag, onClose, onResolve, resolving }) => {
+  onLifecycleAction: (action: 'investigate' | 'escalate' | 'resolve', notes: string, target?: 'DISTRIBUTOR' | 'REGULATOR') => void;
+  loading: boolean;
+}> = ({ flag, onClose, onLifecycleAction, loading }) => {
+  const [notes, setNotes] = useState('');
+  const [escalateTarget, setEscalateTarget] = useState<'DISTRIBUTOR' | 'REGULATOR'>('DISTRIBUTOR');
+
   if (!flag) return null;
   const m = sevMeta(flag.severity);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className="relative w-full max-w-xl bg-surface-dark rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-slideUp"
+        className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-surface-dark rounded-2xl border border-white/10 shadow-2xl animate-slideUp"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className={`px-6 py-4 border-b border-white/8 flex items-center justify-between`}
+        <div className={`px-6 py-4 border-b border-white/8 flex items-center justify-between sticky top-0 bg-surface-dark/95 backdrop-blur z-10`}
           style={{ borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: flag.severity === 'CRITICAL' ? '#D50000' : flag.severity === 'HIGH' ? '#FB8C00' : flag.severity === 'MEDIUM' ? '#FFD600' : '#2979FF' }}>
           <div className="flex items-center gap-3">
             <Badge label={flag.severity} className={m.cls} />
@@ -83,30 +87,63 @@ const FlagDetailModal: React.FC<{
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
-          {/* Description */}
+        <div className="p-6 space-y-6">
+          {/* Status & ID Row */}
+          <div className="flex items-center justify-between p-4 rounded-xl border border-white/5 bg-white/2">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Investigation Status</p>
+              <div className="flex items-center gap-2">
+                <Badge label={flag.status.replace(/_/g, ' ')} className={
+                  flag.status === 'NEW' ? 'text-white border-white/30' :
+                  flag.status === 'INVESTIGATING' ? 'text-primary border-primary bg-primary/10' :
+                  flag.status.includes('ESCALATED') ? 'text-warning border-warning bg-warning/10' :
+                  'text-success border-success bg-success/10'
+                } />
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Flag ID</p>
+              <p className="text-xs font-mono text-white/60">{flag.id}</p>
+            </div>
+          </div>
+
+          {/* Core Info */}
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-white/30 mb-1.5">Description</p>
             <p className="text-white/80 text-sm leading-relaxed">{flag.description || <span className="text-white/30 italic">No description provided.</span>}</p>
           </div>
 
+          {/* Evidence Image */}
+          {flag.evidence_image && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-white/30 mb-1.5">Photographic Evidence</p>
+              <div className="rounded-xl overflow-hidden border border-white/10 bg-black/50">
+                <img 
+                  src={flag.evidence_image.startsWith('http') ? flag.evidence_image : `http://localhost:8000${flag.evidence_image}`} 
+                  alt="Evidence" 
+                  className="max-h-64 object-contain w-full"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Metadata grid */}
           <div className="grid grid-cols-2 gap-4">
             <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Flag ID</p>
-              <p className="text-xs font-mono text-white/60 break-all">{flag.id}</p>
-            </div>
-            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Reporter Type</p>
-              <p className="text-sm font-semibold text-white">{flag.reporter_type}</p>
-            </div>
-            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
               <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Reporter</p>
-              <p className="text-sm font-semibold text-white">{flag.user_username}</p>
+              <p className="text-sm font-semibold text-white">{flag.user_username} <span className="text-xs font-normal text-white/40">({flag.reporter_type})</span></p>
             </div>
             <div className="bg-white/3 rounded-xl p-3 border border-white/5">
-              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Reported</p>
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Reported At</p>
               <p className="text-sm text-white/70">{timeAgo(flag.created_at)}</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Dispensing Pharmacy</p>
+              <p className="text-sm font-semibold text-white">{flag.dispensing_pharmacy_name || <span className="text-white/30 font-normal">Not provided</span>}</p>
+            </div>
+            <div className="bg-white/3 rounded-xl p-3 border border-white/5">
+              <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Date of Purchase</p>
+              <p className="text-sm font-semibold text-white">{flag.date_of_purchase || <span className="text-white/30 font-normal">Not provided</span>}</p>
             </div>
             <div className="bg-white/3 rounded-xl p-3 border border-white/5 col-span-2">
               <p className="text-[10px] uppercase tracking-wider text-white/30 mb-1">Lot / Batch</p>
@@ -117,40 +154,69 @@ const FlagDetailModal: React.FC<{
             </div>
           </div>
 
-          {/* Status */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-white/50">
-              Status:&nbsp;
-              {flag.is_resolved
-                ? <span className="text-success font-bold">Resolved ✓</span>
-                : <span className="text-warning font-bold">Open — Needs Action</span>}
-            </span>
-          </div>
+          {/* Investigation Notes */}
+          {flag.investigator_notes && (
+            <div>
+              <p className="text-xs font-bold uppercase tracking-wider text-white/30 mb-1.5 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5"/> Audit Trail</p>
+              <div className="bg-black/30 rounded-xl p-4 border border-white/5 text-xs text-white/70 whitespace-pre-wrap font-mono leading-relaxed h-32 overflow-y-auto">
+                {flag.investigator_notes}
+              </div>
+            </div>
+          )}
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-1">
-            <button
-              onClick={() => onResolve(flag.id, flag.is_resolved)}
-              disabled={resolving === flag.id}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all ${
-                flag.is_resolved
-                  ? 'bg-warning/10 border border-warning/30 text-warning hover:bg-warning/20'
-                  : 'bg-success/10 border border-success/30 text-success hover:bg-success/20'
-              } disabled:opacity-50`}
-            >
-              {resolving === flag.id
-                ? <RefreshCw className="w-4 h-4 animate-spin" />
-                : flag.is_resolved
-                  ? <><RotateCcw className="w-4 h-4" /> Reopen Flag</>
-                  : <><CheckCircle2 className="w-4 h-4" /> Mark Resolved</>}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-5 py-2.5 rounded-xl text-sm font-medium bg-white/5 border border-white/10 text-white/60 hover:text-white hover:bg-white/10 transition-all"
-            >
-              Close
-            </button>
-          </div>
+          {/* Action Area */}
+          {!flag.is_resolved && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 space-y-4">
+              <h4 className="text-sm font-bold text-white">Investigation Actions</h4>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Append investigation or resolution notes here..."
+                className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-sm text-white placeholder:text-white/30 min-h-[80px] focus:outline-none focus:border-primary"
+              />
+              
+              <div className="flex gap-2 flex-wrap">
+                {flag.status === 'NEW' && (
+                  <button
+                    onClick={() => { onLifecycleAction('investigate', notes); setNotes(''); }}
+                    disabled={loading}
+                    className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-bold bg-primary text-white hover:bg-primary/90 disabled:opacity-50"
+                  >
+                    {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Start Investigation'}
+                  </button>
+                )}
+                
+                {(flag.status === 'NEW' || flag.status === 'INVESTIGATING') && (
+                  <div className="flex-1 min-w-[200px] flex border border-warning/30 rounded-lg overflow-hidden">
+                    <select 
+                      value={escalateTarget} 
+                      onChange={e => setEscalateTarget(e.target.value as 'DISTRIBUTOR' | 'REGULATOR')}
+                      className="bg-warning/10 text-warning text-xs font-bold px-2 py-2 border-r border-warning/30 focus:outline-none"
+                    >
+                      <option value="DISTRIBUTOR" className="bg-surface-dark">Distributor</option>
+                      <option value="REGULATOR" className="bg-surface-dark">Regulator</option>
+                    </select>
+                    <button
+                      onClick={() => { onLifecycleAction('escalate', notes, escalateTarget); setNotes(''); }}
+                      disabled={loading || !notes.trim()}
+                      className="flex-1 flex items-center justify-center gap-2 py-2 px-3 text-sm font-bold bg-warning/20 text-warning hover:bg-warning/30 disabled:opacity-50"
+                      title={!notes.trim() ? "Notes are required for escalation" : ""}
+                    >
+                      {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Escalate'}
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => { onLifecycleAction('resolve', notes); setNotes(''); }}
+                  disabled={loading}
+                  className="flex-1 min-w-[140px] flex items-center justify-center gap-2 py-2 px-4 rounded-lg text-sm font-bold bg-success text-white hover:bg-success/90 disabled:opacity-50"
+                >
+                  {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <><CheckCircle2 className="w-4 h-4" /> Resolve Flag</>}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -305,18 +371,26 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   // ── Actions ───────────────────────────────────────────────────────────────
-  const handleResolveFlag = async (id: string, resolved: boolean) => {
+  const handleLifecycleAction = async (actionType: 'investigate' | 'escalate' | 'resolve', notes: string, target?: 'DISTRIBUTOR' | 'REGULATOR') => {
+    if (!selectedFlag) return;
+    const id = selectedFlag.id;
     setResolvingId(id);
     try {
-      if (resolved) {
-        await unresolveFlag(id);
+      let updatedFlag: AdminCrowdFlag;
+      if (actionType === 'investigate') {
+        updatedFlag = await startInvestigation(id, notes);
+      } else if (actionType === 'escalate' && target) {
+        updatedFlag = await escalateFlag(id, target, notes);
+      } else if (actionType === 'resolve') {
+        updatedFlag = await resolveFlag(id, notes);
       } else {
-        await resolveFlag(id);
+        return;
       }
-      setFlags(prev => prev.map(f => f.id === id ? { ...f, is_resolved: !resolved } : f));
-      // Also update selectedFlag if it's open
-      setSelectedFlag(prev => prev?.id === id ? { ...prev, is_resolved: !resolved } : prev);
-      if (!resolved) setCrisisAlerts(prev => prev.map(a => a.flagId === id ? { ...a, dismissed: true } : a));
+      setFlags(prev => prev.map(f => f.id === id ? updatedFlag : f));
+      setSelectedFlag(updatedFlag);
+      if (updatedFlag.is_resolved) {
+        setCrisisAlerts(prev => prev.map(a => a.flagId === id ? { ...a, dismissed: true } : a));
+      }
     } catch { /* silent */ } finally {
       setResolvingId(null);
     }
@@ -481,8 +555,8 @@ const AdminDashboard: React.FC = () => {
         <FlagDetailModal
           flag={selectedFlag}
           onClose={() => setSelectedFlag(null)}
-          onResolve={handleResolveFlag}
-          resolving={resolvingId}
+          onLifecycleAction={handleLifecycleAction}
+          loading={resolvingId !== null}
         />
 
         {/* Content */}
@@ -494,7 +568,7 @@ const AdminDashboard: React.FC = () => {
               <Card className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Flag className="w-5 h-5 text-danger" />
-                  <h3 className="text-lg font-bold text-white">Live Epidemiological Outbreak Tracking</h3>
+                  <h3 className="text-lg font-bold text-white">Geolocation Tracking Map</h3>
                 </div>
                 <FraudRadarMap />
               </Card>
@@ -530,9 +604,14 @@ const AdminDashboard: React.FC = () => {
                             <p className="text-[10px] text-white/40 font-mono">{f.lot_batch_number || f.lot.slice(0,12)+'…'} · {f.user_username}</p>
                           </div>
                           <Badge label={f.severity} className={m.cls} />
-                          <button onClick={() => handleResolveFlag(f.id, f.is_resolved)} title={f.is_resolved ? 'Unresolve' : 'Resolve'} className={`shrink-0 ${f.is_resolved ? 'text-white/20 hover:text-warning' : 'text-success/60 hover:text-success'}`}>
-                            {f.is_resolved ? <RotateCcw className="w-4 h-4"/> : <CheckCircle2 className="w-4 h-4"/>}
-                          </button>
+                          <div className="shrink-0 w-24 flex justify-end">
+                            <Badge label={f.status.replace(/_/g, ' ')} className={
+                              f.status === 'NEW' ? 'text-white/60 border-white/20' :
+                              f.status === 'INVESTIGATING' ? 'text-primary border-primary bg-primary/10' :
+                              f.status.includes('ESCALATED') ? 'text-warning border-warning bg-warning/10' :
+                              'text-success border-success bg-success/10'
+                            } />
+                          </div>
                         </div>
                       );
                     })}
@@ -731,32 +810,17 @@ const AdminDashboard: React.FC = () => {
 
                             {/* Action row */}
                             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/5">
-                              <button
-                                onClick={() => handleResolveFlag(f.id, f.is_resolved)}
-                                disabled={resolvingId === f.id}
-                                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition-all disabled:opacity-50 ${
-                                  f.is_resolved
-                                    ? 'bg-warning/10 border-warning/30 text-warning hover:bg-warning/20'
-                                    : 'bg-success/10 border-success/30 text-success hover:bg-success/20'
-                                }`}
-                              >
-                                {resolvingId === f.id
-                                  ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                                  : f.is_resolved
-                                    ? <><RotateCcw className="w-3.5 h-3.5" />Reopen</>
-                                    : <><CheckCircle2 className="w-3.5 h-3.5" />Mark Resolved</>}
-                              </button>
+                              <Badge label={f.status.replace(/_/g, ' ')} className={
+                                f.status === 'NEW' ? 'text-white/60 border-white/20' :
+                                f.status === 'INVESTIGATING' ? 'text-primary border-primary bg-primary/10' :
+                                f.status.includes('ESCALATED') ? 'text-warning border-warning bg-warning/10' :
+                                'text-success border-success bg-success/10'
+                              } />
                               <button
                                 onClick={() => setSelectedFlag(f)}
-                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-white/10 text-white/50 hover:text-white hover:bg-white/5 transition-all"
+                                className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-white/5 hover:bg-white/10 text-white transition-all"
                               >
-                                <Eye className="w-3.5 h-3.5" /> View Details
-                              </button>
-                              <button
-                                onClick={() => { setActiveTab('flags'); setSearch(f.severity.toLowerCase()); }}
-                                className="ml-auto flex items-center gap-1 text-xs text-white/25 hover:text-white/60 transition-colors"
-                              >
-                                All {f.severity} flags <ChevronRight className="w-3 h-3" />
+                                <Eye className="w-3.5 h-3.5" /> View & Investigate
                               </button>
                             </div>
                           </div>
@@ -798,11 +862,11 @@ const AdminDashboard: React.FC = () => {
                               <Td mono>{f.lot_batch_number||f.lot.slice(0,16)+'…'}</Td>
                               <td className="px-5 py-3 text-white/70">{f.user_username}</td>
                               <td className="px-5 py-3 text-white/40 text-xs">{timeAgo(f.created_at)}</td>
-                              <Td>{f.is_resolved?<Badge label="Resolved" className="text-success border-success/30 bg-success/10"/>:<Badge label="Open" className="text-warning border-warning/30 bg-yellow-500/10"/>}</Td>
+                              <Td>{f.is_resolved?<Badge label="Resolved" className="text-success border-success/30 bg-success/10"/>:<Badge label={f.status.replace(/_/g, ' ')} className="text-warning border-warning/30 bg-yellow-500/10"/>}</Td>
                               <td className="px-5 py-3">
-                                <button onClick={()=>handleResolveFlag(f.id,f.is_resolved)}
-                                  className={`flex items-center gap-1 text-xs font-bold transition-colors ${f.is_resolved?'text-white/40 hover:text-warning':'text-success/70 hover:text-success'}`}>
-                                  {f.is_resolved?<><RotateCcw className="w-3.5 h-3.5"/>Unresolve</>:<><CheckCircle2 className="w-3.5 h-3.5"/>Resolve</>}
+                                <button onClick={() => setSelectedFlag(f)}
+                                  className="flex items-center gap-1 text-xs font-bold text-primary hover:text-primary/80 transition-colors">
+                                  <Eye className="w-3.5 h-3.5"/> Investigate
                                 </button>
                               </td>
                             </tr>

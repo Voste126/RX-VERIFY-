@@ -1,19 +1,7 @@
-"""
-URL configuration for RxVerify Lite project.
-
-This module integrates all app URL patterns and provides:
-- API endpoints for all 6 apps
-- JWT authentication endpoints
-- Swagger/OpenAPI documentation UI
-- Django admin interface
-
-API Documentation:
-- Swagger UI: /api/docs/
-- ReDoc: /api/redoc/
-- OpenAPI Schema: /api/schema/
-"""
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 
 urlpatterns = [
@@ -46,3 +34,7 @@ urlpatterns = [
     # Supply Orders & Chain of Custody (orders app)
     path('api/orders/', include('orders.urls')),
 ]
+
+# Serve media files in development
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

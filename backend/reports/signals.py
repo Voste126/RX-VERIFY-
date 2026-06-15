@@ -2,7 +2,7 @@
 Django signals for automatic trust score updates.
 
 This module defines signals that automatically recalculate lot trust scores
-when crowd flags are created, updated (resolved/unresolved), or deleted.
+when crowd flags are created, updated (status changes), or deleted.
 """
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
@@ -13,12 +13,12 @@ from .models import CrowdFlag
 def update_trust_score_on_flag_save(sender, instance, created, **kwargs):
     """
     Update lot trust score when a flag is created or updated.
-    
+
     Triggers when:
     - A new flag is created
-    - A flag's is_resolved status changes
+    - A flag's status changes (e.g. NEW → RESOLVED)
     - Any other flag field is updated
-    
+
     Args:
         sender: The CrowdFlag model class
         instance: The CrowdFlag instance being saved
@@ -34,7 +34,7 @@ def update_trust_score_on_flag_save(sender, instance, created, **kwargs):
 def update_trust_score_on_flag_delete(sender, instance, **kwargs):
     """
     Update lot trust score when a flag is deleted.
-    
+
     Args:
         sender: The CrowdFlag model class
         instance: The CrowdFlag instance being deleted
