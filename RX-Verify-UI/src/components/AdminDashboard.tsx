@@ -986,29 +986,22 @@ const AdminDashboard: React.FC = () => {
 
           {/* ── RECEIPTS ───────────────────────────────────────────────── */}
           {activeTab === 'receipts' && (() => {
-            const rows = filter(receipts, ['pharmacist_username','lot_batch_number']);
-            return receipts.length === 0 ? (
-              <Card className="p-10 text-center text-white/40">
-                <ClipboardList className="w-10 h-10 mx-auto mb-3 opacity-30" />
-                <p className="font-semibold">Receipt events restricted to Pharmacist role</p>
-                <p className="text-sm mt-1 text-white/30">The /receipts/ endpoint requires Pharmacist access. Data will appear here if the backend adds Admin read access.</p>
-              </Card>
-            ) : (
+            const rows = filter(receipts, ['user_username','lot_batch_number']);
+            return (
               <Card className="overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b border-white/5"><Th>Batch</Th><Th>Pharmacist</Th><Th>Qty</Th><Th>Location</Th><Th>Received</Th></tr></thead>
+                    <thead><tr className="border-b border-white/5"><Th>Batch</Th><Th>Pharmacist</Th><Th>Location</Th><Th>Received</Th></tr></thead>
                     <tbody className="divide-y divide-white/5">
                       {rows.map(r=>(
                         <tr key={r.id} className="hover:bg-white/2">
                           <Td mono>{r.lot_batch_number||String(r.lot||'—').slice(0,16)+'…'}</Td>
-                          <td className="px-5 py-3 font-bold">{r.pharmacist_username||'—'}</td>
-                          <td className="px-5 py-3 text-white/60">{r.quantity_received??'—'}</td>
+                          <td className="px-5 py-3 font-bold">{r.user_username||'—'}</td>
                           <td className="px-5 py-3 text-white/50 text-xs">{r.location_coord?`${r.location_coord.lat.toFixed(3)}, ${r.location_coord.lng.toFixed(3)}`:'—'}</td>
-                          <td className="px-5 py-3 text-white/40 text-xs">{timeAgo(r.received_at)}</td>
+                          <td className="px-5 py-3 text-white/40 text-xs">{r.created_at ? timeAgo(r.created_at) : '—'}</td>
                         </tr>
                       ))}
-                      {!rows.length&&<EmptyRow cols={5}/>}
+                      {!rows.length&&<EmptyRow cols={4} msg="No receipt events found in the system."/>}
                     </tbody>
                   </table>
                 </div>

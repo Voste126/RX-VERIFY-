@@ -60,10 +60,9 @@ export interface AdminReceiptEvent {
     id: string | number;
     lot?: string;
     lot_batch_number?: string;
-    pharmacist_username?: string;
+    user_username?: string;
     user?: string;
-    received_at: string;
-    quantity_received?: number;
+    created_at: string;
     location_coord?: { lat: number; lng: number };
 }
 
