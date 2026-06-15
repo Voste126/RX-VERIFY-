@@ -96,7 +96,7 @@ const DistributorDashboard: React.FC = () => {
   useEffect(() => {
     const loadUserData = async () => {
       try {
-        const userData = localStorage.getItem('user');
+        const userData = sessionStorage.getItem('user');
         if (userData) {
           const parsedUser = JSON.parse(userData);
           setUser(parsedUser);
@@ -109,8 +109,8 @@ const DistributorDashboard: React.FC = () => {
             setDistributorEntity(entity);
             setStats(prev => ({ ...prev, entityStatus: 'registered' }));
             
-            // Store entity ID in localStorage for backup
-            localStorage.setItem('distributor_entity_id', entity.id);
+            // Store entity ID in sessionStorage for backup
+            sessionStorage.setItem('distributor_entity_id', entity.id);
             
             // Load medicines, manifests, and orders
             await loadMedicines(entity.id);
@@ -118,7 +118,7 @@ const DistributorDashboard: React.FC = () => {
             await loadOrders();
           } else {
             setStats(prev => ({ ...prev, entityStatus: 'none' }));
-            localStorage.removeItem('distributor_entity_id');
+            sessionStorage.removeItem('distributor_entity_id');
           }
         }
         setLoading(false);

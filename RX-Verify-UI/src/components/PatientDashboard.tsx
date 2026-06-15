@@ -121,7 +121,7 @@ const PatientDashboard: React.FC = () => {
 
   // ── Init ──────────────────────────────────────────────────────────────────
   useEffect(() => {
-    const userData = localStorage.getItem('user');
+    const userData = sessionStorage.getItem('user');
     if (!userData) { navigate('/login'); return; }
     const parsed = JSON.parse(userData);
     if (parsed.role !== 'Patient') { navigate('/'); return; }

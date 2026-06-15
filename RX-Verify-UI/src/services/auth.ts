@@ -50,9 +50,9 @@ export const authService = {
         const { access, refresh, user } = response.data;
 
         // Store tokens and user info
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
-        localStorage.setItem('user', JSON.stringify(user));
+        sessionStorage.setItem('access_token', access);
+        sessionStorage.setItem('refresh_token', refresh);
+        sessionStorage.setItem('user', JSON.stringify(user));
 
         return { access, refresh, user };
     },
@@ -73,7 +73,7 @@ export const authService = {
     },
 
     async logout(): Promise<void> {
-        const refreshToken = localStorage.getItem('refresh_token');
+        const refreshToken = sessionStorage.getItem('refresh_token');
         try {
             // Try to invalidate token on backend
             await api.post('/auth/logout/', { refresh_token: refreshToken });
@@ -81,20 +81,20 @@ export const authService = {
             // Silently ignore logout API errors - we'll clear local storage anyway
         } finally {
             // Clear local storage regardless of API response
-            localStorage.removeItem('access_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('distributor_entity_id');
+            sessionStorage.removeItem('access_token');
+            sessionStorage.removeItem('refresh_token');
+            sessionStorage.removeItem('user');
+            sessionStorage.removeItem('distributor_entity_id');
         }
     },
 
     getCurrentUser(): User | null {
-        const userStr = localStorage.getItem('user');
+        const userStr = sessionStorage.getItem('user');
         return userStr ? JSON.parse(userStr) : null;
     },
 
     isAuthenticated(): boolean {
-        return !!localStorage.getItem('access_token');
+        return !!sessionStorage.getItem('access_token');
     },
 
     getRole(): string | null {

@@ -175,7 +175,7 @@ const PharmacistInventoryDashboard: React.FC = () => {
   }, [activeTab, stopCamera, inspectStopCamera]);
   
   const loadUserData = () => {
-    const userData = localStorage.getItem('user');
+    const userData = sessionStorage.getItem('user');
     if (userData) {
       setUser(JSON.parse(userData));
     }
@@ -533,9 +533,9 @@ const PharmacistInventoryDashboard: React.FC = () => {
   };
   
   const handleLogout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('user');
     navigate('/login');
   };
   

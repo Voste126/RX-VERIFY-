@@ -18,7 +18,7 @@ api.interceptors.request.use(
         const publicEndpoints = ['/auth/register/', '/auth/token/', '/verify_qr/'];
         const isPublicEndpoint = publicEndpoints.some(ep => config.url?.includes(ep));
         if (!isPublicEndpoint) {
-            const token = localStorage.getItem('access_token');
+            const token = sessionStorage.getItem('access_token');
             if (token) config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -63,21 +63,21 @@ api.interceptors.response.use(
         if (httpStatus === 401 && !originalRequest?._retry && !isAuthEndpoint) {
             originalRequest._retry = true;
             try {
-                const refreshToken = localStorage.getItem('refresh_token');
+                const refreshToken = sessionStorage.getItem('refresh_token');
                 const resp = await axios.post(`${API_BASE_URL}/auth/token/refresh/`, {
                     refresh: refreshToken,
                 });
                 const { access } = resp.data as { access: string };
-                localStorage.setItem('access_token', access);
+                sessionStorage.setItem('access_token', access);
                 if (originalRequest.headers) {
                     originalRequest.headers.Authorization = `Bearer ${access}`;
                 }
                 return api(originalRequest);
             } catch {
                 // Refresh failed — clear session, redirect to login
-                localStorage.removeItem('access_token');
-                localStorage.removeItem('refresh_token');
-                localStorage.removeItem('user');
+                sessionStorage.removeItem('access_token');
+                sessionStorage.removeItem('refresh_token');
+                sessionStorage.removeItem('user');
                 window.location.href = '/';
                 return Promise.reject(new Error('Your session has expired. Please log in again.'));
             }

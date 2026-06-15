@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import ProtectedRoute from './components/ProtectedRoute'
 import LandingPage from './components/LandingPage'
 import JoinNetworkPage from './components/JoinNetworkPage'
 import LoginPage from './components/LoginPage'
@@ -18,32 +19,40 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public Routes */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/join" element={<JoinNetworkPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register/patient" element={<PatientRegistrationPage />} />
         <Route path="/register/pharmacist" element={<PharmacistOnboardingPage />} />
         <Route path="/register/distributor" element={<DistributorRegistrationPage />} />
-        <Route path="/register/distributor/vault" element={<CryptographicVaultPage />} />
         
-        {/* Distributor Routes */}
-        <Route path="/distributor/dashboard" element={<DistributorDashboard />} />
-        <Route path="/distributor/orders" element={<DistributorOrderDashboard />} />
-        <Route path="/distributor/qr-codes/:manifestId" element={<QRCodeDisplayPage />} />
+        {/* Protected Distributor Routes */}
+        <Route element={<ProtectedRoute allowedRoles={['Distributor']} />}>
+          <Route path="/register/distributor/vault" element={<CryptographicVaultPage />} />
+          <Route path="/distributor/dashboard" element={<DistributorDashboard />} />
+          <Route path="/distributor/orders" element={<DistributorOrderDashboard />} />
+          <Route path="/distributor/qr-codes/:manifestId" element={<QRCodeDisplayPage />} />
+        </Route>
         
-        {/* Pharmacist Routes */}
-        <Route path="/pharmacist/dashboard" element={<PharmacistInventoryDashboard />} />
+        {/* Protected Pharmacist Routes */}
+        <Route element={<ProtectedRoute allowedRoles={['Pharmacist']} />}>
+          <Route path="/pharmacist/dashboard" element={<PharmacistInventoryDashboard />} />
+        </Route>
         
-        {/* Patient Routes */}
-        <Route path="/patient/dashboard" element={<PatientDashboard />} />
-        <Route path="/patient/scan/:uuid" element={<PatientScanResult />} />
+        {/* Protected Patient Routes */}
+        <Route element={<ProtectedRoute allowedRoles={['Patient']} />}>
+          <Route path="/patient/dashboard" element={<PatientDashboard />} />
+          <Route path="/patient/scan/:uuid" element={<PatientScanResult />} />
+        </Route>
 
-        {/* Admin Routes */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        {/* Protected Admin Routes */}
+        <Route element={<ProtectedRoute allowedRoles={['Admin']} />}>
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
+        </Route>
       </Routes>
     </Router>
   )
 }
 
 export default App
-

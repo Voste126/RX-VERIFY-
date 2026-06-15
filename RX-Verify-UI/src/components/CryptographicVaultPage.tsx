@@ -41,8 +41,8 @@ const CryptographicVaultPage: React.FC = () => {
       setPublicKey(public_key || '');
       setPrivateKey(private_key || '');
       
-      // Store distributor ID in localStorage for later use
-      localStorage.setItem('distributor_id', id);
+      // Store distributor ID in sessionStorage for later use
+      sessionStorage.setItem('distributor_id', id);
       
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to generate cryptographic keys');

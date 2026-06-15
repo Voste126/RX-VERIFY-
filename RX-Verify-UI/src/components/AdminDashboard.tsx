@@ -295,7 +295,7 @@ const AdminDashboard: React.FC = () => {
 
   // ── Auth guard (runs once on mount) ───────────────────────────────────────
   useEffect(() => {
-    const raw = localStorage.getItem('user');
+    const raw = sessionStorage.getItem('user');
     if (!raw) { navigate('/login'); return; }
     const parsed: AdminUser = JSON.parse(raw);
     if (parsed.role !== 'Admin') { navigate('/login'); return; }

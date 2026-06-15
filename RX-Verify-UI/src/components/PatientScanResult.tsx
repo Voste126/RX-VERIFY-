@@ -109,7 +109,7 @@ const PatientScanResult: React.FC = () => {
     }
     
     try {
-      const token = localStorage.getItem('access_token');
+      const token = sessionStorage.getItem('access_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       
       await api.post('/flags/', {

@@ -1,9 +1,11 @@
-// Dummy implementation of useAuth hook to prevent compilation errors
-// In a real app, this should attach to your context provider
+import { useState } from 'react';
+import { authService } from '../services/auth';
+import type { User } from '../services/auth';
+
 export const useAuth = () => {
-    return {
-        user: { role: 'Distributor' },
-        isAuthenticated: true,
-        isLoading: false
-    };
+    const [user, setUser] = useState<User | null>(authService.getCurrentUser());
+    const [isAuthenticated, setIsAuthenticated] = useState<boolean>(authService.isAuthenticated());
+    const [isLoading, setIsLoading] = useState<boolean>(false);
+
+    return { user, isAuthenticated, isLoading };
 };
