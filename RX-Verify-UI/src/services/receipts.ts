@@ -11,6 +11,7 @@ export interface ReceiptEvent {
     user_username: string;
     lot: string;
     lot_batch_number: string;
+    lot_medicine_name?: string;
     created_at: string;
 }
 
