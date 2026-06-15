@@ -58,7 +58,6 @@ const PharmacistOrderDashboard: React.FC = () => {
   const { 
     videoRef: inspectVideoRef, 
     cameraActive: inspectCameraActive, 
-    cameraError: inspectCameraError, 
     startCamera: inspectStartCamera, 
     stopCamera: inspectStopCamera 
   } = useQRScanner({

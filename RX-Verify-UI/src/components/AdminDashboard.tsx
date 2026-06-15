@@ -4,8 +4,8 @@ import {
   LogOut, ShieldAlert, Users, FileText, Flag,
   TrendingUp, CheckCircle2, RefreshCw, Search, X,
   Bell, BellOff, Zap, BarChart3, ShoppingCart,
-  Building2, Pill, ClipboardList, RotateCcw, ChevronDown,
-  AlertTriangle, Eye, Clock, UserCircle, Package, ChevronRight
+  Building2, Pill, ClipboardList, ChevronDown,
+  AlertTriangle, Eye, Clock, UserCircle, Package
 } from 'lucide-react';
 import { authService } from '../services/auth';
 import {
