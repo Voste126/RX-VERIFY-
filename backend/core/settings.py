@@ -121,28 +121,16 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # individual DB_* environment variables (local development).
 DATABASE_URL = os.getenv('DATABASE_URL')
 
-# if DATABASE_URL:
-#     DATABASES = {
-#         'default': dj_database_url.config(
-#             default=DATABASE_URL,
-#             conn_max_age=600,
-#             ssl_require='render.com' in DATABASE_URL,
-#         )
-#     }
-# else:
-#     DATABASES = {
-#         'default': {
-#             'ENGINE': 'django.db.backends.postgresql',
-#             'NAME': os.getenv('DB_NAME'),
-#             'USER': os.getenv('DB_USER'),
-#             'PASSWORD': os.getenv('DB_PASSWORD'),
-#             'HOST': os.getenv('DB_HOST', '127.0.0.1'),
-#             'PORT': os.getenv('DB_PORT', '5432'),
-#         }
-#     }
-
-# local Developement setup
-DATABASES = {
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            ssl_require='render.com' in DATABASE_URL,
+        )
+    }
+else:
+    DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
             'NAME': os.getenv('DB_NAME'),
@@ -151,7 +139,19 @@ DATABASES = {
             'HOST': os.getenv('DB_HOST', '127.0.0.1'),
             'PORT': os.getenv('DB_PORT', '5432'),
         }
-}
+    }
+
+# local Developement setup
+# DATABASES = {
+#         'default': {
+#             'ENGINE': 'django.db.backends.postgresql',
+#             'NAME': os.getenv('DB_NAME'),
+#             'USER': os.getenv('DB_USER'),
+#             'PASSWORD': os.getenv('DB_PASSWORD'),
+#             'HOST': os.getenv('DB_HOST', '127.0.0.1'),
+#             'PORT': os.getenv('DB_PORT', '5432'),
+#         }
+# }
 
 # Caching for Rate Limiting and Lockout System
 CACHES = {
